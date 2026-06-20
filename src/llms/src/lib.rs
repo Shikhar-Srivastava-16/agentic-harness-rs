@@ -8,14 +8,35 @@ pub mod ollama;
 
 type LlmResult<T> = std::result::Result<T, LlmError>;
 
-trait LlmLike {
-    fn prompt(&self, prompt: &str) -> LlmResult<&str>;
-    fn sys_prompt(&self, sys_prompt: Option<&str>) -> LlmResult<()>;
-    fn init(sys_prompt: Option<&str>) -> LlmResult<&Self>;
+enum LlmOutput {
+    String(String),
+}
+
+pub trait LlmLike {
+    /// Set up the logic needed to prompt the LLM, accesing only the associated object and the string value of a
+    /// user prompt. Returns the output of the LLM
+    fn prompt(&self, prompt: String) -> LlmResult<String>;
+    /// Set the system prompt and change the
+    fn set_sys_prompt(&self, sys_prompt: Option<&str>) -> LlmResult<()>;
+    fn init(sys_prompt: Option<String>, url: Option<String>) -> LlmResult<Self>
+    where
+        Self: Sized;
 }
 
 #[derive(Error, Debug)]
 pub enum LlmError {
     #[error("Unexpected Format found!")]
     UnexpectedFormat,
+    #[error("Operation Not Implemented!")]
+    OpNotImplemented,
+    #[error("Operation Not Supported by This Implementor!")]
+    OpNotSupported,
+
+    #[error("Async Operation Timed Out!")]
+    TimedOut,
+    // FIXME: Placeholder
+    #[error("Other!")]
+    Other,
+    #[error("HTTP request failed: {0}")]
+    Request(#[from] reqwest::Error),
 }

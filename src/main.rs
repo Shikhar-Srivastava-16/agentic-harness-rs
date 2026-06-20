@@ -1,7 +1,8 @@
 use clap::Parser;
 use std::error::Error;
 
-use llms;
+use llms::LlmLike;
+use llms::ollama::Ollama;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -23,41 +24,14 @@ struct Args {
     url: String,
 }
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+fn main() {
     let args = Args::parse();
 
-    let client = reqwest::Client::new();
-    let api_url = format!("{}/api/chat", args.url.trim_end_matches('/'));
+    // requesting start here
 
-    let messages = vec![
-        llms::general::Message {
-            role: "system".to_string(),
-            content: args.system,
-        },
-        llms::general::Message {
-            role: "user".to_string(),
-            content: args.query,
-        },
-    ];
+    let mistral = Ollama::default();
 
-    let request_body = llms::general::ChatRequest {
-        model: args.model,
-        messages,
-        stream: false,
-    };
+    let ans = mistral.prompt(args.query).unwrap();
 
-    println!("Connecting to Ollama at {}...", api_url);
-
-    let response = client.post(&api_url).json(&request_body).send().await?;
-
-    if response.status().is_success() {
-        let chat_response: llms::general::ChatResponse = response.json().await?;
-        println!("\nAssistant: {}", chat_response.message.content);
-    } else {
-        let error_text = response.text().await?;
-        eprintln!("Error from Ollama API: {}", error_text);
-    }
-
-    Ok(())
+    println!("mistral: {ans}");
 }
