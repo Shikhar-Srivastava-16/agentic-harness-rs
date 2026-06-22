@@ -28,8 +28,9 @@ fn main() {
     let args = Args::parse();
 
     // requesting start here
+    let mut mistral = Ollama::default();
 
-    let mistral = Ollama::default();
+    mistral.set_sys_prompt(args.system);
 
     let ans = mistral.prompt(args.query).unwrap();
 

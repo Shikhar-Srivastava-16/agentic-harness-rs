@@ -21,7 +21,9 @@ impl Default for Ollama {
 }
 
 // stub
-struct OllamaConfig {}
+pub struct OllamaConfig {
+    name: String,
+}
 
 /// The LlmLike trait defines shared behaviour for all object that are LLMs or act like LLMs.
 /// Simple examples include LLMs like Claude or GPT, or tools like Ollama which are not LLMs
@@ -73,35 +75,45 @@ impl LlmLike<OllamaConfig> for Ollama {
     /// exist.
     /// All other members of the implementor must either be one-time-set (or `final'), or you must
     /// make your own setters
-    fn set_sys_prompt(&self, sys_prompt: Option<&str>) -> LlmResult<()> {
-        Err(LlmError::OpNotImplemented)
+    fn set_sys_prompt(&mut self, sys_prompt: String) -> LlmResult<()> {
+        if self.sys_pr.is_none() {
+            self.sys_pr = Some(sys_prompt);
+            Ok(())
+        } else {
+            // NOTE: This might not be correct, check conventions
+            Err(LlmError::OpNotSupported(String::from(
+                "Cannot reset system prompt once set",
+            )))
+        }
     }
     /// Here, the config type is 'OllamaConfig', which will contain Ollama-Specific things like the
     /// name of the model and so on
     fn init(
-        sys_prompt: Option<String>,
-        url: Option<String>,
-        conf: OllamaConfig,
+        _sys_prompt: Option<String>,
+        _url: Option<String>,
+        _conf: OllamaConfig,
     ) -> LlmResult<Self> {
-        Ok(match (sys_prompt, url) {
-            // both need to be set
-            // (Some(prompt), Some(url_str)) => Ollama {
-            //     sys_pr: Some(prompt),
-            //     rest_url: url_str,
-            // },
-            // default prompt
-            // (None, Some(url_str)) => Ollama {
-            //     rest_url: url_str,
-            //     ..Default::default()
-            // },
-            // default url
-            // (Some(prompt), None) => Ollama {
-            //     sys_pr: Some(prompt),
-            //     ..Default::default()
-            // },
-            // default
-            // FIXME: The init should actually work properly
-            _ => Ollama::default(),
-        })
+        // Ok(match (sys_prompt, url) {
+        //     // both need to be set
+        //     // (Some(prompt), Some(url_str)) => Ollama {
+        //     //     sys_pr: Some(prompt),
+        //     //     rest_url: url_str,
+        //     // },
+        //     // default prompt
+        //     // (None, Some(url_str)) => Ollama {
+        //     //     rest_url: url_str,
+        //     //     ..Default::default()
+        //     // },
+        //     // default url
+        //     // (Some(prompt), None) => Ollama {
+        //     //     sys_pr: Some(prompt),
+        //     //     ..Default::default()
+        //     // },
+        //     // default
+        //     _ => Ollama::default(),
+        // })
+
+        // FIXME: The init should actually work properly
+        Ok(Ollama::default())
     }
 }

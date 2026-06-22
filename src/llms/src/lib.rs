@@ -17,11 +17,7 @@ pub trait LlmLike<T> {
     /// user prompt. Returns the output of the LLM
     fn prompt(&self, prompt: String) -> LlmResult<String>;
     /// Set the system prompt and change the
-    fn set_sys_prompt(&self, sys_prompt: Option<&str>) -> LlmResult<()>;
-
-    /// The only option all LlmLikes are expected to have in common are a system prompt and an API
-    /// URL. All other details are expected to be included using the config, which is of a generic
-    /// type T
+    fn set_sys_prompt(&mut self, sys_prompt: String) -> LlmResult<()>;
     fn init(sys_prompt: Option<String>, url: Option<String>, conf: T) -> LlmResult<Self>
     where
         Self: Sized;
@@ -33,8 +29,8 @@ pub enum LlmError {
     UnexpectedFormat,
     #[error("Operation Not Implemented!")]
     OpNotImplemented,
-    #[error("Operation Not Supported by This Implementor!")]
-    OpNotSupported,
+    #[error("Operation Not Supported by This Implementor, because {0}!")]
+    OpNotSupported(String),
 
     #[error("Async Operation Timed Out!")]
     TimedOut,
