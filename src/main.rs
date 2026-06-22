@@ -7,10 +7,6 @@ use llms::ollama::Ollama;
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
-    /// The user query to send to Ollama
-    #[arg(short, long)]
-    query: String,
-
     /// The system prompt to guide the model's behavior
     #[arg(short, long, default_value = "You are a helpful assistant.")]
     system: String,
@@ -29,10 +25,16 @@ fn main() {
 
     // requesting start here
     let mut mistral = Ollama::default();
-
     mistral.set_sys_prompt(args.system);
+    let mut inp = String::new();
+    while !(inp == "exit") {
+        std::io::stdin()
+            .read_line(&mut inp)
+            .expect("Failed to read line");
 
-    let ans = mistral.prompt(args.query).unwrap();
+        let ans = mistral.prompt(inp).unwrap();
 
-    println!("mistral: {ans}");
+        println!("mistral: {ans}");
+        inp = String::from("");
+    }
 }

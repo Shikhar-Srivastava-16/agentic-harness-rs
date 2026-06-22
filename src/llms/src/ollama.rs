@@ -1,3 +1,5 @@
+use crate::HistConfig;
+use crate::History;
 use crate::LlmError;
 use crate::LlmLike;
 use crate::LlmResult;
@@ -8,6 +10,7 @@ pub struct Ollama {
     sys_pr: Option<String>,
     model: String,
     rest_url: String,
+    hist: Vec<general::Message>,
 }
 
 impl Default for Ollama {
@@ -16,6 +19,7 @@ impl Default for Ollama {
             sys_pr: None,
             rest_url: String::from("http://localhost:11434"),
             model: String::from("mistral"),
+            hist: Vec::new(),
         }
     }
 }
@@ -28,12 +32,14 @@ pub struct OllamaConfig {
 /// The LlmLike trait defines shared behaviour for all object that are LLMs or act like LLMs.
 /// Simple examples include LLMs like Claude or GPT, or tools like Ollama which are not LLMs
 /// themselves but behave similarly enough that for our purposes, they may as well be the same
-impl LlmLike<OllamaConfig> for Ollama {
+impl LlmLike for Ollama {
+    type Conf = OllamaConfig;
+
     /// This method must be synchronous, meaning your implementation is expected to _only_ return
     /// when the prompt has be 'sent' and the LLM or Llm-like object to which it is sent has
     /// finished responding or an error has occurred
-    fn prompt(&self, prompt: String) -> LlmResult<String> {
-        let messages = match &self.sys_pr {
+    fn prompt(&mut self, prompt: String) -> LlmResult<String> {
+        self.hist.extend(match &self.sys_pr {
             Some(pr) => vec![
                 general::Message {
                     role: "system".to_string(),
@@ -49,11 +55,11 @@ impl LlmLike<OllamaConfig> for Ollama {
                 role: "user".to_string(),
                 content: prompt,
             }],
-        };
+        });
 
         let request_body = general::ChatRequest {
             model: self.model.clone(),
-            messages,
+            messages: self.hist.clone(),
             stream: false,
         };
 
@@ -115,5 +121,38 @@ impl LlmLike<OllamaConfig> for Ollama {
 
         // FIXME: The init should actually work properly
         Ok(Ollama::default())
+    }
+}
+
+impl History for Ollama {
+    fn add_to_history(&mut self, msg: general::Message) -> LlmResult<()> {
+        self.hist.push(msg);
+
+        Ok(())
+    }
+    fn summarise(&mut self, from: usize, to: usize) -> LlmResult<()> {
+        assert!(from > to);
+
+        let mut msg: String = String::from("");
+        for i in &self.hist[from..=to] {
+            msg += i.content.as_str();
+        }
+
+        let summary = self.prompt(String::from(msg.clone()));
+        self.hist.reverse();
+        self.hist.push(general::Message {
+            role: String::from("user"),
+            content: summary.unwrap(),
+        });
+        self.hist.reverse();
+
+        Ok(())
+    }
+
+    // might benefit from VecDeque + pop. Otherwise, most common case is also worst case for
+    // complexity
+    fn remove_from_history(&mut self, idx: usize) -> LlmResult<()> {
+        self.hist.remove(idx);
+        Ok(())
     }
 }
