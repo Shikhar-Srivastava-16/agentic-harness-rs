@@ -12,13 +12,17 @@ enum LlmOutput {
     String(String),
 }
 
-pub trait LlmLike {
+pub trait LlmLike<T> {
     /// Set up the logic needed to prompt the LLM, accesing only the associated object and the string value of a
     /// user prompt. Returns the output of the LLM
     fn prompt(&self, prompt: String) -> LlmResult<String>;
     /// Set the system prompt and change the
     fn set_sys_prompt(&self, sys_prompt: Option<&str>) -> LlmResult<()>;
-    fn init(sys_prompt: Option<String>, url: Option<String>) -> LlmResult<Self>
+
+    /// The only option all LlmLikes are expected to have in common are a system prompt and an API
+    /// URL. All other details are expected to be included using the config, which is of a generic
+    /// type T
+    fn init(sys_prompt: Option<String>, url: Option<String>, conf: T) -> LlmResult<Self>
     where
         Self: Sized;
 }

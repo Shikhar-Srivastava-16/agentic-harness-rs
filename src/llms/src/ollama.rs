@@ -20,7 +20,13 @@ impl Default for Ollama {
     }
 }
 
-impl LlmLike for Ollama {
+// stub
+struct OllamaConfig {}
+
+/// The LlmLike trait defines shared behaviour for all object that are LLMs or act like LLMs.
+/// Simple examples include LLMs like Claude or GPT, or tools like Ollama which are not LLMs
+/// themselves but behave similarly enough that for our purposes, they may as well be the same
+impl LlmLike<OllamaConfig> for Ollama {
     /// This method must be synchronous, meaning your implementation is expected to _only_ return
     /// when the prompt has be 'sent' and the LLM or Llm-like object to which it is sent has
     /// finished responding or an error has occurred
@@ -70,7 +76,13 @@ impl LlmLike for Ollama {
     fn set_sys_prompt(&self, sys_prompt: Option<&str>) -> LlmResult<()> {
         Err(LlmError::OpNotImplemented)
     }
-    fn init(sys_prompt: Option<String>, url: Option<String>) -> LlmResult<Self> {
+    /// Here, the config type is 'OllamaConfig', which will contain Ollama-Specific things like the
+    /// name of the model and so on
+    fn init(
+        sys_prompt: Option<String>,
+        url: Option<String>,
+        conf: OllamaConfig,
+    ) -> LlmResult<Self> {
         Ok(match (sys_prompt, url) {
             // both need to be set
             // (Some(prompt), Some(url_str)) => Ollama {
