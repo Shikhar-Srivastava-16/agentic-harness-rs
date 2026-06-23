@@ -25,10 +25,8 @@ pub trait LlmLike {
     fn init(sys_prompt: Option<String>, url: Option<String>, conf: Self::Conf) -> LlmResult<Self>
     where
         Self: Sized;
-}
 
-// can keep track of the chat history, but history is volatile memory (like RAM)
-pub trait History {
+    // can keep track of the chat history, but history is volatile memory (like RAM)
     fn add_to_history(&mut self, msg: general::Message) -> LlmResult<()>;
 
     fn summarise(&mut self, from: usize, to: usize) -> LlmResult<()>;
@@ -41,9 +39,11 @@ pub trait History {
 pub trait Memory {}
 
 // ToolReady Models can track their history and are LlmLike
-pub trait ToolReady: History + LlmLike {}
+pub trait ToolReady: LlmLike {
+    fn prompt(&mut self, prompt: String) -> LlmResult<String>;
+}
 
-// AgentReady Models are ToolReady and have Memory
+// AgentReady Models are ToolReady and have non-volatile Memory
 pub trait AgentReady: ToolReady + Memory {}
 
 #[derive(Error, Debug)]
@@ -64,6 +64,7 @@ pub enum LlmError {
     Request(#[from] reqwest::Error),
 }
 
+// FIXME: Use HistConfig
 enum HistConfig {
     /// Maintain all of the messages, upto a certain size. If size = 0, then never stop recording
     ConversationBuffer(i32),

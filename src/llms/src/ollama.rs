@@ -1,8 +1,8 @@
 use crate::HistConfig;
-use crate::History;
 use crate::LlmError;
 use crate::LlmLike;
 use crate::LlmResult;
+use crate::ToolReady;
 use crate::general;
 
 pub struct Ollama {
@@ -11,6 +11,7 @@ pub struct Ollama {
     model: String,
     rest_url: String,
     hist: Vec<general::Message>,
+    hist_config: HistConfig,
 }
 
 impl Default for Ollama {
@@ -18,13 +19,14 @@ impl Default for Ollama {
         Ollama {
             sys_pr: None,
             rest_url: String::from("http://localhost:11434"),
-            model: String::from("mistral"),
+            model: String::from("lfm2.5"),
             hist: Vec::new(),
+            hist_config: HistConfig::ConversationBuffer(0),
         }
     }
 }
 
-// stub
+// FIXME: stub
 pub struct OllamaConfig {
     name: String,
 }
@@ -97,7 +99,7 @@ impl LlmLike for Ollama {
     fn init(
         _sys_prompt: Option<String>,
         _url: Option<String>,
-        _conf: OllamaConfig,
+        _conf: Self::Conf,
     ) -> LlmResult<Self> {
         // Ok(match (sys_prompt, url) {
         //     // both need to be set
@@ -122,9 +124,7 @@ impl LlmLike for Ollama {
         // FIXME: The init should actually work properly
         Ok(Ollama::default())
     }
-}
 
-impl History for Ollama {
     fn add_to_history(&mut self, msg: general::Message) -> LlmResult<()> {
         self.hist.push(msg);
 
@@ -138,7 +138,10 @@ impl History for Ollama {
             msg += i.content.as_str();
         }
 
-        let summary = self.prompt(String::from(msg.clone()));
+        // NOTE: this syntax is notable. The two `LlmLike` and `ToolReady` are both used to
+        // represent LLMs and `ToolReady` is dependent on `LlmLike`
+        // This means that we must specify which `prompt` this is using
+        let summary = <Ollama as LlmLike>::prompt(self, String::from(msg.clone()));
         self.hist.reverse();
         self.hist.push(general::Message {
             role: String::from("user"),
@@ -154,5 +157,12 @@ impl History for Ollama {
     fn remove_from_history(&mut self, idx: usize) -> LlmResult<()> {
         self.hist.remove(idx);
         Ok(())
+    }
+}
+
+impl ToolReady for Ollama {
+    fn prompt(&mut self, prompt: String) -> LlmResult<String> {
+        //
+        Err(LlmError::OpNotImplemented)
     }
 }
