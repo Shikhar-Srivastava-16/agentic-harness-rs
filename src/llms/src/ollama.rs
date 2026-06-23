@@ -2,8 +2,8 @@ use crate::HistConfig;
 use crate::LlmError;
 use crate::LlmLike;
 use crate::LlmResult;
-use crate::ToolReady;
 use crate::general;
+use crate::tooling::ToolReady;
 
 pub struct Ollama {
     // None system prompt is possible
@@ -162,7 +162,21 @@ impl LlmLike for Ollama {
 
 impl ToolReady for Ollama {
     fn prompt(&mut self, prompt: String) -> LlmResult<String> {
-        //
-        Err(LlmError::OpNotImplemented)
+        let resp = <Ollama as LlmLike>::prompt(self, prompt)?;
+
+        match is_tool_call(resp) {
+            Some(tool) => {
+                assert_tool_exists();
+                // FIXME: run_tool is dependent on this trait
+                let tool_output = run_tool(tool, self);
+                let new_resp = <Ollama as LlmLike>::prompt(self, tool_output);
+                <Ollama as ToolReady>::prompt(self, new_resp)
+            }
+
+            None => Ok(resp),
+        }
     }
+}
+pub fn hitchiker_tool() -> String {
+    String::from("42")
 }

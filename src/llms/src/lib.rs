@@ -38,11 +38,6 @@ pub trait LlmLike {
 // From vectorDB_rs
 pub trait Memory {}
 
-// ToolReady Models can track their history and are LlmLike
-pub trait ToolReady: LlmLike {
-    fn prompt(&mut self, prompt: String) -> LlmResult<String>;
-}
-
 // AgentReady Models are ToolReady and have non-volatile Memory
 pub trait AgentReady: ToolReady + Memory {}
 
