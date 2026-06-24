@@ -19,7 +19,9 @@ impl Default for Ollama {
         Ollama {
             sys_pr: None,
             rest_url: String::from("http://localhost:11434"),
-            model: String::from("lfm2.5"),
+            // model: String::from("lfm2.5"),
+            // model: String::from("mistral"),
+            model: String::from("qwen3:8B"),
             hist: Vec::new(),
             hist_config: HistConfig::ConversationBuffer(0),
         }
@@ -43,10 +45,10 @@ impl LlmLike for Ollama {
     fn prompt(&mut self, prompt: String) -> LlmResult<String> {
         self.hist.extend(match &self.sys_pr {
             Some(pr) => vec![
-                general::Message {
-                    role: "system".to_string(),
-                    content: pr.clone(),
-                },
+                // general::Message {
+                //     role: "system".to_string(),
+                //     content: pr.clone(),
+                // },
                 general::Message {
                     role: "user".to_string(),
                     content: prompt,
@@ -64,17 +66,25 @@ impl LlmLike for Ollama {
             messages: self.hist.clone(),
             stream: false,
         };
-
-        let client = reqwest::blocking::Client::new();
+        let client = reqwest::blocking::Client::builder()
+            .timeout(std::time::Duration::from_secs(300)) // 5 minutes
+            .build()
+            .unwrap();
         let api_url = format!("{}/api/chat", self.rest_url.trim_end_matches('/'));
         let response = client.post(&api_url).json(&request_body).send()?;
 
         if response.status().is_success() {
             let chat_response: general::ChatResponse = response.json()?;
+            let content = chat_response.message.content.clone();
+            self.hist.push(general::Message {
+                role: "assistant".to_string(),
+                content: content.clone(),
+            });
             Ok(chat_response.message.content)
         } else {
             // FIXME: This needs to be changed to properly write text
             let error_text = response.text()?;
+            println!("Ollama: Error: {}", error_text);
             Err(LlmError::Other)
         }
     }
@@ -86,6 +96,10 @@ impl LlmLike for Ollama {
     fn set_sys_prompt(&mut self, sys_prompt: String) -> LlmResult<()> {
         if self.sys_pr.is_none() {
             self.sys_pr = Some(sys_prompt);
+            self.add_to_history(general::Message {
+                role: "system".to_string(),
+                content: self.sys_pr.clone().unwrap(),
+            });
             Ok(())
         } else {
             // NOTE: This might not be correct, check conventions
@@ -161,6 +175,53 @@ impl LlmLike for Ollama {
 }
 
 impl ToolReady for Ollama {
+    fn tool_respond(&mut self, prompt: String) -> LlmResult<String> {
+        self.hist.extend(match &self.sys_pr {
+            Some(pr) => vec![
+                // general::Message {
+                //     role: "system".to_string(),
+                //     content: pr.clone(),
+                // },
+                general::Message {
+                    role: "tool".to_string(),
+                    content: prompt,
+                },
+            ],
+
+            None => vec![general::Message {
+                role: "tool".to_string(),
+                content: prompt,
+            }],
+        });
+
+        let request_body = general::ChatRequest {
+            model: self.model.clone(),
+            messages: self.hist.clone(),
+            stream: false,
+        };
+        let client = reqwest::blocking::Client::builder()
+            .timeout(std::time::Duration::from_secs(300)) // 5 minutes
+            .build()
+            .unwrap();
+        let api_url = format!("{}/api/chat", self.rest_url.trim_end_matches('/'));
+        let response = client.post(&api_url).json(&request_body).send()?;
+
+        if response.status().is_success() {
+            let chat_response: general::ChatResponse = response.json()?;
+            let content = chat_response.message.content.clone();
+            self.hist.push(general::Message {
+                role: "assistant".to_string(),
+                content: content.clone(),
+            });
+
+            Ok(chat_response.message.content)
+        } else {
+            // FIXME: This needs to be changed to properly write text
+            let error_text = response.text()?;
+            println!("Ollama: Error: {}", error_text);
+            Err(LlmError::Other)
+        }
+    }
     fn prompt(&mut self, prompt: String) -> LlmResult<String> {
         //
         Err(LlmError::OpNotImplemented)

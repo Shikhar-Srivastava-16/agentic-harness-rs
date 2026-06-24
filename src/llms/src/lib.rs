@@ -40,6 +40,7 @@ pub trait Memory {}
 
 // ToolReady Models can track their history and are LlmLike
 pub trait ToolReady: LlmLike {
+    fn tool_respond(&mut self, prompt: String) -> LlmResult<String>;
     fn prompt(&mut self, prompt: String) -> LlmResult<String>;
 }
 
