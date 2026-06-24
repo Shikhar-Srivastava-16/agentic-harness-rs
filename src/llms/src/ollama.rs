@@ -12,6 +12,7 @@ pub struct Ollama {
     rest_url: String,
     hist: Vec<general::Message>,
     hist_config: HistConfig,
+    timeout: u64,
 }
 
 impl Default for Ollama {
@@ -24,6 +25,7 @@ impl Default for Ollama {
             model: String::from("qwen3:8B"),
             hist: Vec::new(),
             hist_config: HistConfig::ConversationBuffer(0),
+            timeout: 300,
         }
     }
 }
@@ -43,22 +45,9 @@ impl LlmLike for Ollama {
     /// when the prompt has be 'sent' and the LLM or Llm-like object to which it is sent has
     /// finished responding or an error has occurred
     fn prompt(&mut self, prompt: String) -> LlmResult<String> {
-        self.hist.extend(match &self.sys_pr {
-            Some(pr) => vec![
-                // general::Message {
-                //     role: "system".to_string(),
-                //     content: pr.clone(),
-                // },
-                general::Message {
-                    role: "user".to_string(),
-                    content: prompt,
-                },
-            ],
-
-            None => vec![general::Message {
-                role: "user".to_string(),
-                content: prompt,
-            }],
+        self.hist.push(general::Message {
+            role: "user".to_string(),
+            content: prompt,
         });
 
         let request_body = general::ChatRequest {
@@ -67,7 +56,7 @@ impl LlmLike for Ollama {
             stream: false,
         };
         let client = reqwest::blocking::Client::builder()
-            .timeout(std::time::Duration::from_secs(300)) // 5 minutes
+            .timeout(std::time::Duration::from_secs(self.timeout)) // 5 minutes
             .build()
             .unwrap();
         let api_url = format!("{}/api/chat", self.rest_url.trim_end_matches('/'));
@@ -139,11 +128,17 @@ impl LlmLike for Ollama {
         Ok(Ollama::default())
     }
 
+    /// You define how history is maintained for your particular model. In some cases, history
+    /// might not need to be maintained by this layer at all, so this method would be a stub.
+    /// Otherwise, the implementation of this method gives you complete control over the
+    /// maintainance of history in your struct
     fn add_to_history(&mut self, msg: general::Message) -> LlmResult<()> {
         self.hist.push(msg);
 
         Ok(())
     }
+
+    /// This function would be used in order to manage/engineer the context and history
     fn summarise(&mut self, from: usize, to: usize) -> LlmResult<()> {
         assert!(from > to);
 
@@ -176,22 +171,9 @@ impl LlmLike for Ollama {
 
 impl ToolReady for Ollama {
     fn tool_respond(&mut self, prompt: String) -> LlmResult<String> {
-        self.hist.extend(match &self.sys_pr {
-            Some(pr) => vec![
-                // general::Message {
-                //     role: "system".to_string(),
-                //     content: pr.clone(),
-                // },
-                general::Message {
-                    role: "tool".to_string(),
-                    content: prompt,
-                },
-            ],
-
-            None => vec![general::Message {
-                role: "tool".to_string(),
-                content: prompt,
-            }],
+        self.hist.push(general::Message {
+            role: "tool".to_string(),
+            content: prompt,
         });
 
         let request_body = general::ChatRequest {
@@ -200,7 +182,7 @@ impl ToolReady for Ollama {
             stream: false,
         };
         let client = reqwest::blocking::Client::builder()
-            .timeout(std::time::Duration::from_secs(300)) // 5 minutes
+            .timeout(std::time::Duration::from_secs(self.timeout)) // 5 minutes
             .build()
             .unwrap();
         let api_url = format!("{}/api/chat", self.rest_url.trim_end_matches('/'));
@@ -223,7 +205,6 @@ impl ToolReady for Ollama {
         }
     }
     fn prompt(&mut self, prompt: String) -> LlmResult<String> {
-        //
         Err(LlmError::OpNotImplemented)
     }
 }

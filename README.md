@@ -1,3 +1,4 @@
+[Out of Date!!]
 # Ollama Rust Client
 
 A simple Rust CLI application to interact with the Ollama REST API.
