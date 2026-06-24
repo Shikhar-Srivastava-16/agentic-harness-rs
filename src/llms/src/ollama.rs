@@ -204,7 +204,22 @@ impl ToolReady for Ollama {
             Err(LlmError::Other)
         }
     }
+    // FIXME: Support multiple calls, should be able to call tool check on the thing returned by
+    // this also
     fn prompt(&mut self, prompt: String) -> LlmResult<String> {
-        Err(LlmError::OpNotImplemented)
+        let mut ans = <Ollama as LlmLike>::prompt(self, prompt).unwrap();
+        ans = String::from(ans.trim());
+        eprintln!("DEBUG: LLM raw response: {:?}", ans);
+
+        while (ans.starts_with("TOOL_CALL")) {
+            println!("tool: {}", ans);
+            let mut tool_out =
+                crate::tooling::run_tool(&crate::tooling::hitchiker_tool, String::from(ans))
+                    .unwrap();
+
+            // FIXME: More Error Handling
+            ans = String::from(self.tool_respond(String::from(tool_out)).unwrap().trim());
+        }
+        Ok(String::from(ans))
     }
 }

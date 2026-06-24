@@ -42,31 +42,32 @@ fn main() {
         NEVER contradict or second-guess a tool result with your own training data.
         Your training data is outdated - tool results are always more current and accurate.
         If a tool says X, your answer must reflect X.
+        You are an assistant with access to real-time search tools.
+        CRITICAL RULES:
+        - Your training data is OUTDATED and WRONG for current events.
+        - TOOL_RESULT is always correct. Never contradict it.
+        - If TOOL_RESULT says X, you MUST answer X, even if it conflicts with what you know OR think OR infer.
+        - Do NOT say 'as of my knowledge cutoff'. You have real-time tools.
+        - Do NOT suggest the tool result might be wrong.
+        - Do NOT ask for more than one fact at a time 
+        - ONLY request one TOOL_RESULT at a time. If you need multiple, wait for the tool to return before you move to the next
     ",
     ));
     let mut inp = String::new();
-    while !(inp == "exit") {
-        std::io::stdin()
-            .read_line(&mut inp)
-            .expect("Failed to read line");
 
-        let ans = prompt_wrap(&mut mistral, inp);
+    std::io::stdin()
+        .read_line(&mut inp)
+        .expect("Failed to read line");
+
+    while (inp != "exit\n") {
+        // let ans = prompt_wrap(&mut mistral, inp);
+
+        let ans = <Ollama as ToolReady>::prompt(&mut mistral, inp).unwrap();
 
         println!("mistral: {ans}");
         inp = String::from("");
-    }
-}
-
-fn prompt_wrap(mistral: &mut Ollama, a: String) -> String {
-    let ans = <Ollama as LlmLike>::prompt(mistral, a).unwrap();
-    let ans = ans.trim();
-    eprintln!("DEBUG: LLM raw response: {:?}", ans);
-    if ans.starts_with("TOOL_CALL") {
-        println!("tool: {}", ans);
-        let mut mock_out = llms::tooling::run_tool(&llms::tooling::hitchiker_tool).unwrap();
-
-        mistral.tool_respond(String::from(mock_out)).unwrap()
-    } else {
-        ans.to_string()
+        std::io::stdin()
+            .read_line(&mut inp)
+            .expect("Failed to read line");
     }
 }
