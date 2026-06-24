@@ -1,13 +1,10 @@
 use crate::LlmResult;
 use crate::ToolReady;
 
-pub fn run_tool<ToolOutType>(
-    _tool: &dyn Fn(&str) -> ToolOutType,
-    _llm: impl ToolReady,
-) -> LlmResult<&str> {
+pub fn run_tool(_tool: &dyn Fn(&str) -> String) -> LlmResult<&str> {
     Ok("42")
 }
 
-pub fn hitchiker_tool() -> String {
+pub fn hitchiker_tool(_: &str) -> String {
     String::from("42")
 }

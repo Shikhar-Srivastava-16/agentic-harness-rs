@@ -63,13 +63,9 @@ fn prompt_wrap(mistral: &mut Ollama, a: String) -> String {
     eprintln!("DEBUG: LLM raw response: {:?}", ans);
     if ans.starts_with("TOOL_CALL") {
         println!("tool: {}", ans);
-        let mut mock_out = String::new();
-        print!("Tool Ans: ");
-        std::io::stdin()
-            .read_line(&mut mock_out)
-            .expect("Failed to read line");
+        let mut mock_out = llms::tooling::run_tool(&llms::tooling::hitchiker_tool).unwrap();
 
-        mistral.tool_respond(mock_out).unwrap()
+        mistral.tool_respond(String::from(mock_out)).unwrap()
     } else {
         ans.to_string()
     }
