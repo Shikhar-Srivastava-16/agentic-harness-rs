@@ -1,14 +1,14 @@
 use crate::LlmLike;
 use crate::LlmResult;
 
-pub type ToolType<ToolOutType> = dyn Fn(&str) -> ToolOutType;
-
-// ToolReady Models can track their history and are LlmLike
-pub trait ToolReady: LlmLike {
-    fn prompt(&mut self, prompt: String) -> LlmResult<String>;
+pub fn run_tool(tool: &dyn Fn(String) -> String, input: String) -> LlmResult<String> {
+    Ok(tool(input))
 }
 
-// FIXME: stub
-fn run_tool<ToolOutType>(_llm: impl ToolReady, _tool: ToolType<ToolOutType>) -> LlmResult<String> {
-    Err(crate::LlmError::OpNotImplemented)
+pub fn foobar_tool(_: String) -> String {
+    "fubar".into()
+}
+
+pub fn hitchhiker_tool(_: String) -> String {
+    "42".into()
 }

@@ -12,6 +12,7 @@ pub struct Ollama {
     rest_url: String,
     hist: Vec<general::Message>,
     hist_config: HistConfig,
+    timeout: u64,
 }
 
 impl Default for Ollama {
@@ -19,9 +20,12 @@ impl Default for Ollama {
         Ollama {
             sys_pr: None,
             rest_url: String::from("http://localhost:11434"),
-            model: String::from("lfm2.5"),
+            // model: String::from("lfm2.5"),
+            // model: String::from("mistral"),
+            model: String::from("qwen3:8B"),
             hist: Vec::new(),
             hist_config: HistConfig::ConversationBuffer(0),
+            timeout: 300,
         }
     }
 }
@@ -41,22 +45,9 @@ impl LlmLike for Ollama {
     /// when the prompt has be 'sent' and the LLM or Llm-like object to which it is sent has
     /// finished responding or an error has occurred
     fn prompt(&mut self, prompt: String) -> LlmResult<String> {
-        self.hist.extend(match &self.sys_pr {
-            Some(pr) => vec![
-                general::Message {
-                    role: "system".to_string(),
-                    content: pr.clone(),
-                },
-                general::Message {
-                    role: "user".to_string(),
-                    content: prompt,
-                },
-            ],
-
-            None => vec![general::Message {
-                role: "user".to_string(),
-                content: prompt,
-            }],
+        self.hist.push(general::Message {
+            role: "user".to_string(),
+            content: prompt,
         });
 
         let request_body = general::ChatRequest {
@@ -64,17 +55,25 @@ impl LlmLike for Ollama {
             messages: self.hist.clone(),
             stream: false,
         };
-
-        let client = reqwest::blocking::Client::new();
+        let client = reqwest::blocking::Client::builder()
+            .timeout(std::time::Duration::from_secs(self.timeout)) // 5 minutes
+            .build()
+            .unwrap();
         let api_url = format!("{}/api/chat", self.rest_url.trim_end_matches('/'));
         let response = client.post(&api_url).json(&request_body).send()?;
 
         if response.status().is_success() {
             let chat_response: general::ChatResponse = response.json()?;
+            let content = chat_response.message.content.clone();
+            self.hist.push(general::Message {
+                role: "assistant".to_string(),
+                content: content.clone(),
+            });
             Ok(chat_response.message.content)
         } else {
             // FIXME: This needs to be changed to properly write text
             let error_text = response.text()?;
+            println!("Ollama: Error: {}", error_text);
             Err(LlmError::Other)
         }
     }
@@ -86,6 +85,10 @@ impl LlmLike for Ollama {
     fn set_sys_prompt(&mut self, sys_prompt: String) -> LlmResult<()> {
         if self.sys_pr.is_none() {
             self.sys_pr = Some(sys_prompt);
+            let _ = self.add_to_history(general::Message {
+                role: "system".to_string(),
+                content: self.sys_pr.clone().unwrap(),
+            });
             Ok(())
         } else {
             // NOTE: This might not be correct, check conventions
@@ -125,11 +128,17 @@ impl LlmLike for Ollama {
         Ok(Ollama::default())
     }
 
+    /// You define how history is maintained for your particular model. In some cases, history
+    /// might not need to be maintained by this layer at all, so this method would be a stub.
+    /// Otherwise, the implementation of this method gives you complete control over the
+    /// maintainance of history in your struct
     fn add_to_history(&mut self, msg: general::Message) -> LlmResult<()> {
         self.hist.push(msg);
 
         Ok(())
     }
+
+    /// This function would be used in order to manage/engineer the context and history
     fn summarise(&mut self, from: usize, to: usize) -> LlmResult<()> {
         assert!(from > to);
 
@@ -161,22 +170,62 @@ impl LlmLike for Ollama {
 }
 
 impl ToolReady for Ollama {
-    fn prompt(&mut self, prompt: String) -> LlmResult<String> {
-        let resp = <Ollama as LlmLike>::prompt(self, prompt)?;
+    fn tool_respond(&mut self, prompt: String) -> LlmResult<String> {
+        self.hist.push(general::Message {
+            role: "tool".to_string(),
+            content: prompt,
+        });
 
-        match is_tool_call(resp) {
-            Some(tool) => {
-                assert_tool_exists();
-                // FIXME: run_tool is dependent on this trait
-                let tool_output = run_tool(tool, self);
-                let new_resp = <Ollama as LlmLike>::prompt(self, tool_output);
-                <Ollama as ToolReady>::prompt(self, new_resp)
-            }
+        let request_body = general::ChatRequest {
+            model: self.model.clone(),
+            messages: self.hist.clone(),
+            stream: false,
+        };
+        let client = reqwest::blocking::Client::builder()
+            .timeout(std::time::Duration::from_secs(self.timeout)) // 5 minutes
+            .build()
+            .unwrap();
+        let api_url = format!("{}/api/chat", self.rest_url.trim_end_matches('/'));
+        let response = client.post(&api_url).json(&request_body).send()?;
 
-            None => Ok(resp),
+        if response.status().is_success() {
+            let chat_response: general::ChatResponse = response.json()?;
+            let content = chat_response.message.content.clone();
+            self.hist.push(general::Message {
+                role: "assistant".to_string(),
+                content: content.clone(),
+            });
+
+            Ok(chat_response.message.content)
+        } else {
+            // FIXME: This needs to be changed to properly write text
+            let error_text = response.text()?;
+            println!("Ollama: Error: {}", error_text);
+            Err(LlmError::Other)
         }
     }
-}
-pub fn hitchiker_tool() -> String {
-    String::from("42")
+    fn prompt(&mut self, prompt: String) -> LlmResult<String> {
+        let mut ans = <Ollama as LlmLike>::prompt(self, prompt).unwrap();
+        ans = String::from(ans.trim());
+        eprintln!("DEBUG: LLM raw response: {:?}", ans);
+
+        while ans.starts_with("TOOL_CALL") {
+            println!("tool: {}", ans);
+
+            let tool: &dyn Fn(String) -> String = if ans.contains("search") {
+                &crate::tooling::foobar_tool
+            } else {
+                if ans.contains("add") {
+                    &crate::tooling::hitchhiker_tool
+                } else {
+                    panic!()
+                }
+            };
+            let tool_out = crate::tooling::run_tool(tool, String::from(ans)).unwrap();
+
+            // FIXME: More Error Handling
+            ans = String::from(self.tool_respond(String::from(tool_out)).unwrap().trim());
+        }
+        Ok(String::from(ans))
+    }
 }
