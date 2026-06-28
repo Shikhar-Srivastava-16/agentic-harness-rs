@@ -1,5 +1,4 @@
 use clap::Parser;
-use std::error::Error;
 
 use llms::LlmLike;
 use llms::ToolReady;
@@ -22,14 +21,15 @@ struct Args {
 }
 
 fn main() {
-    let args = Args::parse();
+    let _args = Args::parse();
 
     // requesting start here
     let mut mistral = Ollama::default();
-    mistral.set_sys_prompt(String::from(
+    let _ = mistral.set_sys_prompt(String::from(
         "You are a helpful assistant with access to tools.
         Available tools:
-        - search_web(query: str) — searches the web and returns results
+        - search(query: str) - searches the web and returns results
+        - add(a: int, b: int) - performs addition
 
         When you need to use a tool, output EXACTLY this format and nothing else:
         TOOL_CALL: {\"tool\": \"tool_name\", \"args\": {\"arg1\": \"value1\"}}
@@ -53,15 +53,14 @@ fn main() {
         - ONLY request one TOOL_RESULT at a time. If you need multiple, wait for the tool to return before you move to the next
     ",
     ));
+
     let mut inp = String::new();
 
     std::io::stdin()
         .read_line(&mut inp)
         .expect("Failed to read line");
 
-    while (inp != "exit\n") {
-        // let ans = prompt_wrap(&mut mistral, inp);
-
+    while inp != "exit\n" {
         let ans = <Ollama as ToolReady>::prompt(&mut mistral, inp).unwrap();
 
         println!("mistral: {ans}");

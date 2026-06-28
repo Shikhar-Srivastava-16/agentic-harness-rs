@@ -5,12 +5,10 @@ pub fn run_tool(tool: &dyn Fn(String) -> String, input: String) -> LlmResult<Str
     Ok(tool(input))
 }
 
-pub fn hitchiker_tool(a: String) -> String {
-    if a.to_lowercase().contains("president") {
-        eprintln!("resp: john doe");
-        String::from("John Doe")
-    } else {
-        eprintln!("resp: 42");
-        String::from("42")
-    }
+pub fn foobar_tool(_: String) -> String {
+    "fubar".into()
+}
+
+pub fn hitchhiker_tool(_: String) -> String {
+    "42".into()
 }
