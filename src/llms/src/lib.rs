@@ -19,19 +19,20 @@ pub trait LlmLike {
 
     /// Set up the logic needed to prompt the LLM, accesing only the associated object and the string value of a
     /// user prompt. Returns the output of the LLM
-    fn prompt(&mut self, prompt: String) -> LlmResult<String>;
+    //==== fn prompt(&mut self, prompt: String) -> LlmResult<String>;
     /// Set the system prompt and change the
-    fn set_sys_prompt(&mut self, sys_prompt: String) -> LlmResult<()>;
+    //==== fn set_sys_prompt(&mut self, sys_prompt: String) -> LlmResult<()>;
+    fn query(&mut self, req: general::ChatRequest) -> LlmResult<String>;
     fn init(sys_prompt: Option<String>, url: Option<String>, conf: Self::Conf) -> LlmResult<Self>
     where
         Self: Sized;
 
     // can keep track of the chat history, but history is volatile memory (like RAM)
-    fn add_to_history(&mut self, msg: general::Message) -> LlmResult<()>;
+    //==== fn add_to_history(&mut self, msg: general::Message) -> LlmResult<()>;
 
-    fn summarise(&mut self, from: usize, to: usize) -> LlmResult<()>;
+    //==== fn summarise(&mut self, from: usize, to: usize) -> LlmResult<()>;
 
-    fn remove_from_history(&mut self, idx: usize) -> LlmResult<()>;
+    //==== fn remove_from_history(&mut self, idx: usize) -> LlmResult<()>;
 }
 
 // can have non-volatile memory, using a VectorDB

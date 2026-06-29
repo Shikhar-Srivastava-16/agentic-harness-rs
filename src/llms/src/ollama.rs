@@ -22,8 +22,6 @@ impl Default for Ollama {
         Ollama {
             sys_pr: None,
             rest_url: String::from("http://localhost:11434"),
-            // model: String::from("lfm2.5"),
-            // model: String::from("mistral"),
             model: String::from("qwen3:8B"),
             hist: Vec::new(),
             hist_config: HistConfig::ConversationBuffer(0),
@@ -35,29 +33,13 @@ impl Default for Ollama {
 
 // FIXME: stub
 pub struct OllamaConfig {
-    name: String,
+    pub name: String,
 }
 
-/// The LlmLike trait defines shared behaviour for all object that are LLMs or act like LLMs.
-/// Simple examples include LLMs like Claude or GPT, or tools like Ollama which are not LLMs
-/// themselves but behave similarly enough that for our purposes, they may as well be the same
 impl LlmLike for Ollama {
     type Conf = OllamaConfig;
 
-    /// This method must be synchronous, meaning your implementation is expected to _only_ return
-    /// when the prompt has be 'sent' and the LLM or Llm-like object to which it is sent has
-    /// finished responding or an error has occurred
-    fn prompt(&mut self, prompt: String) -> LlmResult<String> {
-        self.hist.push(general::Message {
-            role: "user".to_string(),
-            content: prompt,
-        });
-
-        let request_body = general::ChatRequest {
-            model: self.model.clone(),
-            messages: self.hist.clone(),
-            stream: false,
-        };
+    fn query(&mut self, request_body: general::ChatRequest) -> LlmResult<String> {
         let client = reqwest::blocking::Client::builder()
             .timeout(std::time::Duration::from_secs(self.timeout)) // 5 minutes
             .build()
@@ -74,18 +56,64 @@ impl LlmLike for Ollama {
             });
             Ok(chat_response.message.content)
         } else {
-            // FIXME: This needs to be changed to properly write text
+            // FIXME: This needs to be changed to properly write errors text
             let error_text = response.text()?;
             println!("Ollama: Error: {}", error_text);
             Err(LlmError::Other)
         }
+    }
+
+    /// Here, the config type is 'OllamaConfig', which will contain Ollama-Specific things like the
+    /// name of the model and so on
+    fn init(sys_prompt: Option<String>, url: Option<String>, conf: Self::Conf) -> LlmResult<Self> {
+        // FIXME: The init should actually work properly
+        let mut st = Ollama::default();
+
+        // if sys prompt exists, set it
+        if let Some(spr) = sys_prompt {
+            st.set_sys_prompt(spr);
+        };
+
+        // if the url is specially provided, reset it
+        if let Some(u) = url {
+            st.rest_url = u;
+        };
+
+        st.model = conf.name;
+
+        Ok(st)
+    }
+}
+
+/// The LlmLike trait defines shared behaviour for all object that are LLMs or act like LLMs.
+/// Simple examples include LLMs like Claude or GPT, or tools like Ollama which are not LLMs
+/// themselves but behave similarly enough that for our purposes, they may as well be the same
+impl Ollama {
+    /// This method must be synchronous, meaning your implementation is expected to _only_ return
+    /// when the prompt has be 'sent' and the LLM or Llm-like object to which it is sent has
+    /// finished responding or an error has occurred
+    pub fn prompt(&mut self, prompt: String) -> LlmResult<String> {
+        self.hist.push(general::Message {
+            role: "user".to_string(),
+            content: prompt,
+        });
+
+        let request_body = general::ChatRequest {
+            model: self.model.clone(),
+            messages: self.hist.clone(),
+            stream: false,
+        };
+
+        // query
+        self.query(request_body)
+        // query
     }
     /// This method allows you to set a system prompt after the LLM has been created. This is
     /// because the system prompt is the only `dynamic' property that is currently anticipated to
     /// exist.
     /// All other members of the implementor must either be one-time-set (or `final'), or you must
     /// make your own setters
-    fn set_sys_prompt(&mut self, sys_prompt: String) -> LlmResult<()> {
+    pub fn set_sys_prompt(&mut self, sys_prompt: String) -> LlmResult<()> {
         if self.sys_pr.is_none() {
             self.sys_pr = Some(sys_prompt);
             let _ = self.add_to_history(general::Message {
@@ -100,49 +128,18 @@ impl LlmLike for Ollama {
             )))
         }
     }
-    /// Here, the config type is 'OllamaConfig', which will contain Ollama-Specific things like the
-    /// name of the model and so on
-    fn init(
-        _sys_prompt: Option<String>,
-        _url: Option<String>,
-        _conf: Self::Conf,
-    ) -> LlmResult<Self> {
-        // Ok(match (sys_prompt, url) {
-        //     // both need to be set
-        //     // (Some(prompt), Some(url_str)) => Ollama {
-        //     //     sys_pr: Some(prompt),
-        //     //     rest_url: url_str,
-        //     // },
-        //     // default prompt
-        //     // (None, Some(url_str)) => Ollama {
-        //     //     rest_url: url_str,
-        //     //     ..Default::default()
-        //     // },
-        //     // default url
-        //     // (Some(prompt), None) => Ollama {
-        //     //     sys_pr: Some(prompt),
-        //     //     ..Default::default()
-        //     // },
-        //     // default
-        //     _ => Ollama::default(),
-        // })
-
-        // FIXME: The init should actually work properly
-        Ok(Ollama::default())
-    }
-
     /// You define how history is maintained for your particular model. In some cases, history
     /// might not need to be maintained by this layer at all, so this method would be a stub.
     /// Otherwise, the implementation of this method gives you complete control over the
     /// maintainance of history in your struct
-    fn add_to_history(&mut self, msg: general::Message) -> LlmResult<()> {
+    pub fn add_to_history(&mut self, msg: general::Message) -> LlmResult<()> {
         self.hist.push(msg);
 
         Ok(())
     }
 
     /// This function would be used in order to manage/engineer the context and history
-    fn summarise(&mut self, from: usize, to: usize) -> LlmResult<()> {
+    pub fn summarise(&mut self, from: usize, to: usize) -> LlmResult<()> {
         assert!(from > to);
 
         let mut msg: String = String::from("");
@@ -153,7 +150,7 @@ impl LlmLike for Ollama {
         // NOTE: this syntax is notable. The two `LlmLike` and `ToolReady` are both used to
         // represent LLMs and `ToolReady` is dependent on `LlmLike`
         // This means that we must specify which `prompt` this is using
-        let summary = <Ollama as LlmLike>::prompt(self, String::from(msg.clone()));
+        let summary = self.prompt(String::from(msg.clone()));
         self.hist.reverse();
         self.hist.push(general::Message {
             role: String::from("user"),
@@ -166,7 +163,7 @@ impl LlmLike for Ollama {
 
     // might benefit from VecDeque + pop. Otherwise, most common case is also worst case for
     // complexity
-    fn remove_from_history(&mut self, idx: usize) -> LlmResult<()> {
+    pub fn remove_from_history(&mut self, idx: usize) -> LlmResult<()> {
         self.hist.remove(idx);
         Ok(())
     }
@@ -208,7 +205,7 @@ impl ToolReady for Ollama {
         }
     }
     fn prompt(&mut self, prompt: String) -> LlmResult<String> {
-        let mut ans = <Ollama as LlmLike>::prompt(self, prompt).unwrap();
+        let mut ans = self.prompt(prompt).unwrap();
         ans = String::from(ans.trim());
         eprintln!("DEBUG: LLM raw response: {:?}", ans);
 

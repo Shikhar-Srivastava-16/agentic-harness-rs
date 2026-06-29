@@ -25,16 +25,7 @@ struct Args {
 fn main() {
     let _args = Args::parse();
 
-    let mut mistral = Ollama::default();
-    mistral
-        .tools
-        .insert("search_tool".to_string(), Box::new(foobar_tool));
-    mistral
-        .tools
-        .insert("add_tool".to_string(), Box::new(hitchhiker_tool));
-
-    let _ = mistral.set_sys_prompt(String::from(
-        "You are a helpful assistant with access to tools.
+    let system_prompt = String::from("You are a helpful assistant with access to tools.
         Available tools:
         - search(query: str) - searches the web and returns results
         - add(a: int, b: int) - performs addition
@@ -58,9 +49,22 @@ fn main() {
         - Do NOT say 'as of my knowledge cutoff'. You have real-time tools.
         - Do NOT suggest the tool result might be wrong.
         - Do NOT ask for more than one fact at a time 
-        - ONLY request one TOOL_RESULT at a time. If you need multiple, wait for the tool to return before you move to the next
-    ",
-    ));
+        - ONLY request one TOOL_RESULT at a time. If you need multiple, wait for the tool to return before you move to the next");
+
+    let mut mistral = Ollama::init(
+        Some(system_prompt),
+        None,
+        llms::ollama::OllamaConfig {
+            name: "qwen3:8b".into(),
+        },
+    )
+    .unwrap();
+    mistral
+        .tools
+        .insert("search_tool".to_string(), Box::new(foobar_tool));
+    mistral
+        .tools
+        .insert("add_tool".to_string(), Box::new(hitchhiker_tool));
 
     let mut inp = String::new();
 
@@ -90,4 +94,3 @@ pub fn foobar_tool(_: String) -> String {
 pub fn hitchhiker_tool(_: String) -> String {
     "42".into()
 }
-
