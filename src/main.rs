@@ -1,4 +1,6 @@
 use clap::Parser;
+use std::collections::HashMap;
+use std::io::Write;
 
 use llms::LlmLike;
 use llms::ToolReady;
@@ -23,8 +25,14 @@ struct Args {
 fn main() {
     let _args = Args::parse();
 
-    // requesting start here
     let mut mistral = Ollama::default();
+    mistral
+        .tools
+        .insert("search_tool".to_string(), Box::new(foobar_tool));
+    mistral
+        .tools
+        .insert("add_tool".to_string(), Box::new(hitchhiker_tool));
+
     let _ = mistral.set_sys_prompt(String::from(
         "You are a helpful assistant with access to tools.
         Available tools:
@@ -56,6 +64,8 @@ fn main() {
 
     let mut inp = String::new();
 
+    print!(">>> ");
+    std::io::stdout().flush().unwrap();
     std::io::stdin()
         .read_line(&mut inp)
         .expect("Failed to read line");
@@ -65,8 +75,19 @@ fn main() {
 
         println!("mistral: {ans}");
         inp = String::from("");
+        print!(">>> ");
+        std::io::stdout().flush().unwrap();
         std::io::stdin()
             .read_line(&mut inp)
             .expect("Failed to read line");
     }
 }
+
+pub fn foobar_tool(_: String) -> String {
+    "fubar".into()
+}
+
+pub fn hitchhiker_tool(_: String) -> String {
+    "42".into()
+}
+

@@ -2,8 +2,9 @@ use crate::HistConfig;
 use crate::LlmError;
 use crate::LlmLike;
 use crate::LlmResult;
+use crate::ToolReady;
 use crate::general;
-use crate::tooling::ToolReady;
+use std::collections::HashMap;
 
 pub struct Ollama {
     // None system prompt is possible
@@ -13,6 +14,7 @@ pub struct Ollama {
     hist: Vec<general::Message>,
     hist_config: HistConfig,
     timeout: u64,
+    pub tools: HashMap<String, Box<dyn Fn(String) -> String>>,
 }
 
 impl Default for Ollama {
@@ -26,6 +28,7 @@ impl Default for Ollama {
             hist: Vec::new(),
             hist_config: HistConfig::ConversationBuffer(0),
             timeout: 300,
+            tools: HashMap::new(),
         }
     }
 }
@@ -213,13 +216,11 @@ impl ToolReady for Ollama {
             println!("tool: {}", ans);
 
             let tool: &dyn Fn(String) -> String = if ans.contains("search") {
-                &crate::tooling::foobar_tool
+                self.tools.get("search_tool").unwrap()
+            } else if ans.contains("add") {
+                self.tools.get("add_tool").unwrap()
             } else {
-                if ans.contains("add") {
-                    &crate::tooling::hitchhiker_tool
-                } else {
-                    panic!()
-                }
+                panic!("Unknown tool call: {}", ans)
             };
             let tool_out = crate::tooling::run_tool(tool, String::from(ans)).unwrap();
 

@@ -42,3 +42,11 @@ cargo run -- --query "Explain quantum entanglement" --system "You are a theoreti
 
 - `src/main.rs`: Contains the CLI logic and API interaction.
 - `Cargo.toml`: Project dependencies.
+
+## Actions
+
+### Register Tool
+ - Make it available to the crate and library functions
+ - push the message to the history
+ - Input and output are string
+
