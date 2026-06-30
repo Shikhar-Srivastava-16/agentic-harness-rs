@@ -36,8 +36,24 @@ pub struct OllamaConfig {
     pub name: String,
 }
 
+// user cue: "user"
+// response cue: "assistant"
+// tool cue: "tool"
+
 impl LlmLike for Ollama {
     type Conf = OllamaConfig;
+
+    fn user_cue(&self) -> String {
+        "user".to_string()
+    }
+
+    fn response_cue(&self) -> String {
+        "assistant".to_string()
+    }
+
+    fn timeout(&self) -> &u64 {
+        &self.timeout
+    }
 
     fn query(&mut self, request_body: general::ChatRequest) -> LlmResult<String> {
         let client = reqwest::blocking::Client::builder()
@@ -49,11 +65,6 @@ impl LlmLike for Ollama {
 
         if response.status().is_success() {
             let chat_response: general::ChatResponse = response.json()?;
-            let content = chat_response.message.content.clone();
-            self.hist.push(general::Message {
-                role: "assistant".to_string(),
-                content: content.clone(),
-            });
             Ok(chat_response.message.content)
         } else {
             // FIXME: This needs to be changed to properly write errors text
@@ -83,37 +94,15 @@ impl LlmLike for Ollama {
 
         Ok(st)
     }
-}
 
-/// The LlmLike trait defines shared behaviour for all object that are LLMs or act like LLMs.
-/// Simple examples include LLMs like Claude or GPT, or tools like Ollama which are not LLMs
-/// themselves but behave similarly enough that for our purposes, they may as well be the same
-impl Ollama {
-    /// This method must be synchronous, meaning your implementation is expected to _only_ return
-    /// when the prompt has be 'sent' and the LLM or Llm-like object to which it is sent has
-    /// finished responding or an error has occurred
-    pub fn prompt(&mut self, prompt: String) -> LlmResult<String> {
-        self.hist.push(general::Message {
-            role: "user".to_string(),
-            content: prompt,
-        });
-
-        let request_body = general::ChatRequest {
-            model: self.model.clone(),
-            messages: self.hist.clone(),
-            stream: false,
-        };
-
-        // query
-        self.query(request_body)
-        // query
+    fn history(&self) -> &Vec<general::Message> {
+        &self.hist
     }
-    /// This method allows you to set a system prompt after the LLM has been created. This is
-    /// because the system prompt is the only `dynamic' property that is currently anticipated to
-    /// exist.
-    /// All other members of the implementor must either be one-time-set (or `final'), or you must
-    /// make your own setters
-    pub fn set_sys_prompt(&mut self, sys_prompt: String) -> LlmResult<()> {
+    fn history_mut(&mut self) -> &mut Vec<general::Message> {
+        &mut self.hist
+    }
+
+    fn set_sys_prompt(&mut self, sys_prompt: String) -> LlmResult<()> {
         if self.sys_pr.is_none() {
             self.sys_pr = Some(sys_prompt);
             let _ = self.add_to_history(general::Message {
@@ -128,102 +117,21 @@ impl Ollama {
             )))
         }
     }
-    /// You define how history is maintained for your particular model. In some cases, history
-    /// might not need to be maintained by this layer at all, so this method would be a stub.
-    /// Otherwise, the implementation of this method gives you complete control over the
-    /// maintainance of history in your struct
-    pub fn add_to_history(&mut self, msg: general::Message) -> LlmResult<()> {
-        self.hist.push(msg);
 
-        Ok(())
-    }
-
-    /// This function would be used in order to manage/engineer the context and history
-    pub fn summarise(&mut self, from: usize, to: usize) -> LlmResult<()> {
-        assert!(from > to);
-
-        let mut msg: String = String::from("");
-        for i in &self.hist[from..=to] {
-            msg += i.content.as_str();
-        }
-
-        // NOTE: this syntax is notable. The two `LlmLike` and `ToolReady` are both used to
-        // represent LLMs and `ToolReady` is dependent on `LlmLike`
-        // This means that we must specify which `prompt` this is using
-        let summary = self.prompt(String::from(msg.clone()));
-        self.hist.reverse();
-        self.hist.push(general::Message {
-            role: String::from("user"),
-            content: summary.unwrap(),
-        });
-        self.hist.reverse();
-
-        Ok(())
-    }
-
-    // might benefit from VecDeque + pop. Otherwise, most common case is also worst case for
-    // complexity
-    pub fn remove_from_history(&mut self, idx: usize) -> LlmResult<()> {
-        self.hist.remove(idx);
-        Ok(())
+    fn model(&self) -> &String {
+        &self.model
     }
 }
 
 impl ToolReady for Ollama {
-    fn tool_respond(&mut self, prompt: String) -> LlmResult<String> {
-        self.hist.push(general::Message {
-            role: "tool".to_string(),
-            content: prompt,
-        });
-
-        let request_body = general::ChatRequest {
-            model: self.model.clone(),
-            messages: self.hist.clone(),
-            stream: false,
-        };
-        let client = reqwest::blocking::Client::builder()
-            .timeout(std::time::Duration::from_secs(self.timeout)) // 5 minutes
-            .build()
-            .unwrap();
-        let api_url = format!("{}/api/chat", self.rest_url.trim_end_matches('/'));
-        let response = client.post(&api_url).json(&request_body).send()?;
-
-        if response.status().is_success() {
-            let chat_response: general::ChatResponse = response.json()?;
-            let content = chat_response.message.content.clone();
-            self.hist.push(general::Message {
-                role: "assistant".to_string(),
-                content: content.clone(),
-            });
-
-            Ok(chat_response.message.content)
-        } else {
-            // FIXME: This needs to be changed to properly write text
-            let error_text = response.text()?;
-            println!("Ollama: Error: {}", error_text);
-            Err(LlmError::Other)
-        }
+    fn tools(&self) -> &HashMap<String, Box<dyn Fn(String) -> String>> {
+        &self.tools
     }
-    fn prompt(&mut self, prompt: String) -> LlmResult<String> {
-        let mut ans = self.prompt(prompt).unwrap();
-        ans = String::from(ans.trim());
-        eprintln!("DEBUG: LLM raw response: {:?}", ans);
+    fn register_tool() -> LlmResult<()> {
+        Err(LlmError::OpNotImplemented)
+    }
 
-        while ans.starts_with("TOOL_CALL") {
-            println!("tool: {}", ans);
-
-            let tool: &dyn Fn(String) -> String = if ans.contains("search") {
-                self.tools.get("search_tool").unwrap()
-            } else if ans.contains("add") {
-                self.tools.get("add_tool").unwrap()
-            } else {
-                panic!("Unknown tool call: {}", ans)
-            };
-            let tool_out = crate::tooling::run_tool(tool, String::from(ans)).unwrap();
-
-            // FIXME: More Error Handling
-            ans = String::from(self.tool_respond(String::from(tool_out)).unwrap().trim());
-        }
-        Ok(String::from(ans))
+    fn tool_cue(&self) -> String {
+        "tool".to_string()
     }
 }
