@@ -102,24 +102,15 @@ impl LlmLike for Ollama {
         &mut self.hist
     }
 
-    fn set_sys_prompt(&mut self, sys_prompt: String) -> LlmResult<()> {
-        if self.sys_pr.is_none() {
-            self.sys_pr = Some(sys_prompt);
-            let _ = self.add_to_history(general::Message {
-                role: "system".to_string(),
-                content: self.sys_pr.clone().unwrap(),
-            });
-            Ok(())
-        } else {
-            // NOTE: This might not be correct, check conventions
-            Err(LlmError::OpNotSupported(String::from(
-                "Cannot reset system prompt once set",
-            )))
-        }
-    }
-
     fn model(&self) -> &String {
         &self.model
+    }
+
+    fn sys_prompt(&self) -> &Option<String> {
+        &self.sys_pr
+    }
+    fn private_set_sys_pr(&mut self, a: String, _: crate::private::Filter) {
+        self.sys_pr = Some(a);
     }
 }
 

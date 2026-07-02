@@ -1,18 +1,26 @@
 use std::collections::HashMap;
 use thiserror::Error;
 
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
 pub mod general;
 pub mod ollama;
 pub mod tooling;
 
 type LlmResult<T> = std::result::Result<T, LlmError>;
 
-// NOTE: For potentially supporting other forms of output, such are parrsed into structs
+// NOTE: For potentially supporting other forms of output, which are parrsed into structs
 enum LlmOutput {
     String(String),
+}
+
+pub mod private {
+    pub struct Filter(());
+    impl Filter {
+        // this function can be used anywhere inside the crate but _only_ within the crate, due to
+        // the pub(crate) classification
+        pub(crate) fn new() -> Filter {
+            Filter(())
+        }
+    }
 }
 
 pub trait LlmLike {
@@ -37,7 +45,9 @@ pub trait LlmLike {
     /// exist.
     /// All other members of the implementor must either be one-time-set (or `final'), or you must
     /// make your own setters
-    fn set_sys_prompt(&mut self, sys_prompt: String) -> LlmResult<()>;
+    fn sys_prompt(&self) -> &Option<String>;
+
+    fn private_set_sys_pr(&mut self, pr: String, _: private::Filter) -> ();
 
     fn user_cue(&self) -> String;
 
@@ -104,6 +114,21 @@ pub trait LlmLike {
         Ok(())
     }
 
+    fn set_sys_prompt(&mut self, sys_prompt: String) -> LlmResult<()> {
+        if self.sys_prompt().is_none() {
+            self.private_set_sys_pr(sys_prompt, private::Filter::new());
+            let _ = self.add_to_history(general::Message {
+                role: "system".to_string(),
+                content: self.sys_prompt().clone().unwrap(),
+            });
+            Ok(())
+        } else {
+            // NOTE: This might not be correct, check conventions
+            Err(LlmError::OpNotSupported(String::from(
+                "Cannot reset system prompt once set",
+            )))
+        }
+    }
     // might benefit from VecDeque + pop. Otherwise, most common case is also worst case for
     // complexity
     fn remove_from_history(&mut self, idx: usize) -> LlmResult<()> {
