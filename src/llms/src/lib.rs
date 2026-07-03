@@ -162,9 +162,11 @@ pub trait ToolReady: LlmLike {
             stream: false,
         };
 
+        eprintln!("[tool_respond]: TOOL RESPONSE: {:#?}", request_body);
+
         let resp = self.query(request_body)?;
         self.history_mut().push(general::Message {
-            role: "assistant".to_string(),
+            role: resp_c,
             content: resp.clone(),
         });
         Ok(resp)
