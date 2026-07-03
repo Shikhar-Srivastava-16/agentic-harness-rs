@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use thiserror::Error;
 
 pub mod general;
+pub mod minimax;
 pub mod ollama;
 pub mod tooling;
 
