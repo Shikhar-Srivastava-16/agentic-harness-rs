@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use thiserror::Error;
 
+pub mod format;
 pub mod general;
 pub mod minimax;
 pub mod ollama;
@@ -152,7 +153,8 @@ pub trait ToolReady: LlmLike {
         let resp_c = self.response_cue();
 
         self.history_mut().push(general::Message {
-            role: tool,
+            role: "assistant".to_string(),
+            // role: resp_c,
             content: prompt,
         });
 
@@ -166,7 +168,8 @@ pub trait ToolReady: LlmLike {
 
         let resp = self.query(request_body)?;
         self.history_mut().push(general::Message {
-            role: resp_c,
+            role: "tool".to_string(),
+            // role: tool,
             content: resp.clone(),
         });
         Ok(resp)

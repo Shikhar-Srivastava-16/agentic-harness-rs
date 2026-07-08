@@ -6,6 +6,25 @@ use crate::ToolReady;
 use crate::general;
 use std::collections::HashMap;
 
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Message {
+    pub role: String,
+    pub content: String,
+}
+
+#[derive(Serialize, Debug)]
+pub struct ChatRequest {
+    pub model: String,
+    pub messages: Vec<Message>,
+    pub stream: bool,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct ChatResponse {
+    pub message: Message,
+}
 pub struct Ollama {
     // None system prompt is possible
     sys_pr: Option<String>,
