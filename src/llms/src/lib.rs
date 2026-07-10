@@ -7,6 +7,9 @@ pub mod minimax;
 pub mod ollama;
 pub mod tooling;
 
+use tooling::Tool;
+use tooling::ToolMap;
+
 type LlmResult<T> = std::result::Result<T, LlmError>;
 
 // NOTE: For potentially supporting other forms of output, which are parrsed into structs
@@ -145,7 +148,7 @@ pub trait Memory {}
 
 pub trait ToolReady: LlmLike {
     fn tool_cue(&self) -> String;
-    fn tools(&self) -> &HashMap<String, Box<dyn Fn(String) -> String>>;
+    fn tools(&self) -> &ToolMap;
     fn register_tool() -> LlmResult<()>;
 
     fn tool_respond(&mut self, prompt: String) -> LlmResult<String> {
@@ -182,7 +185,7 @@ pub trait ToolReady: LlmLike {
         while ans.starts_with("TOOL_CALL") {
             println!("tool: {}", ans);
 
-            let tool: &dyn Fn(String) -> String = if ans.contains("search") {
+            let tool: &Tool = if ans.contains("search") {
                 self.tools().get("search_tool").unwrap()
             } else if ans.contains("add") {
                 self.tools().get("add_tool").unwrap()

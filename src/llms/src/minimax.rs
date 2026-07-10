@@ -3,6 +3,8 @@ use crate::LlmLike;
 use crate::LlmResult;
 use crate::ToolReady;
 use crate::general;
+use crate::tooling::Tool;
+use crate::tooling::ToolMap;
 use serde::Deserialize;
 use serde_json::json;
 use std::collections::HashMap;
@@ -14,7 +16,7 @@ pub struct Minimax {
     pub api_key: String,
     hist: Vec<general::Message>,
     timeout: u64,
-    pub tools: HashMap<String, Box<dyn Fn(String) -> String>>,
+    pub tools: ToolMap,
 }
 
 impl Default for Minimax {
@@ -99,11 +101,7 @@ impl LlmLike for Minimax {
         }
     }
 
-    fn init(
-        sys_prompt: Option<String>,
-        url: Option<String>,
-        conf: Self::Conf,
-    ) -> LlmResult<Self> {
+    fn init(sys_prompt: Option<String>, url: Option<String>, conf: Self::Conf) -> LlmResult<Self> {
         let mut st = Minimax::default();
         if let Some(spr) = sys_prompt {
             st.set_sys_prompt(spr);
@@ -138,7 +136,7 @@ impl LlmLike for Minimax {
 }
 
 impl ToolReady for Minimax {
-    fn tools(&self) -> &HashMap<String, Box<dyn Fn(String) -> String>> {
+    fn tools(&self) -> &ToolMap {
         &self.tools
     }
 

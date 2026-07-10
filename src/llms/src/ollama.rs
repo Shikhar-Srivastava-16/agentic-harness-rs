@@ -4,6 +4,8 @@ use crate::LlmLike;
 use crate::LlmResult;
 use crate::ToolReady;
 use crate::general;
+use crate::tooling::Tool;
+use crate::tooling::ToolMap;
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
@@ -33,7 +35,7 @@ pub struct Ollama {
     hist: Vec<general::Message>,
     hist_config: HistConfig,
     timeout: u64,
-    pub tools: HashMap<String, Box<dyn Fn(String) -> String>>,
+    pub tools: ToolMap,
 }
 
 impl Default for Ollama {
@@ -134,7 +136,7 @@ impl LlmLike for Ollama {
 }
 
 impl ToolReady for Ollama {
-    fn tools(&self) -> &HashMap<String, Box<dyn Fn(String) -> String>> {
+    fn tools(&self) -> &ToolMap {
         &self.tools
     }
     fn register_tool() -> LlmResult<()> {
