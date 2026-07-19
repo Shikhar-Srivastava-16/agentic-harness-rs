@@ -5,6 +5,7 @@ use crate::LlmResult;
 use crate::ToolReady;
 use crate::general;
 use crate::tooling::Tool;
+use crate::tooling::ToolFn;
 use crate::tooling::ToolMap;
 use std::collections::HashMap;
 
@@ -36,6 +37,7 @@ pub struct Ollama {
     hist_config: HistConfig,
     timeout: u64,
     pub tools: ToolMap,
+    pub registered_tools: Vec<Tool>,
 }
 
 impl Default for Ollama {
@@ -48,6 +50,7 @@ impl Default for Ollama {
             hist_config: HistConfig::ConversationBuffer(0),
             timeout: 300,
             tools: HashMap::new(),
+            registered_tools: Vec::new(),
         }
     }
 }
@@ -139,8 +142,23 @@ impl ToolReady for Ollama {
     fn tools(&self) -> &ToolMap {
         &self.tools
     }
-    fn register_tool() -> LlmResult<()> {
-        Err(LlmError::OpNotImplemented)
+
+    fn registered_tools(&self) -> &Vec<Tool> {
+        &self.registered_tools
+    }
+
+    fn register_tool(
+        &mut self,
+        name: String,
+        description: String,
+        func: Box<ToolFn>,
+    ) -> LlmResult<()> {
+        self.registered_tools.push(Tool {
+            name: name.clone(),
+            description,
+        });
+        self.tools.insert(name, func);
+        Ok(())
     }
 
     fn tool_cue(&self) -> String {

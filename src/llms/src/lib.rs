@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use thiserror::Error;
 
 pub mod format;
@@ -8,6 +7,7 @@ pub mod ollama;
 pub mod tooling;
 
 use tooling::Tool;
+use tooling::ToolFn;
 use tooling::ToolMap;
 
 type LlmResult<T> = std::result::Result<T, LlmError>;
@@ -76,6 +76,7 @@ pub trait LlmLike {
             model: self.model().clone(),
             messages: self.history().clone(),
             stream: false,
+            tools: None,
         };
 
         // query
@@ -149,15 +150,17 @@ pub trait Memory {}
 pub trait ToolReady: LlmLike {
     fn tool_cue(&self) -> String;
     fn tools(&self) -> &ToolMap;
-    fn register_tool() -> LlmResult<()>;
+    fn registered_tools(&self) -> &Vec<Tool>;
+    fn register_tool(
+        &mut self,
+        name: String,
+        description: String,
+        func: Box<ToolFn>,
+    ) -> LlmResult<()>;
 
     fn tool_respond(&mut self, prompt: String) -> LlmResult<String> {
-        let tool = self.tool_cue();
-        let resp_c = self.response_cue();
-
         self.history_mut().push(general::Message {
             role: "assistant".to_string(),
-            // role: resp_c,
             content: prompt,
         });
 
@@ -165,6 +168,7 @@ pub trait ToolReady: LlmLike {
             model: self.model().clone(),
             messages: self.history().clone(),
             stream: false,
+            tools: Some(self.registered_tools().clone()),
         };
 
         eprintln!("[tool_respond]: TOOL RESPONSE: {:#?}", request_body);
@@ -172,20 +176,43 @@ pub trait ToolReady: LlmLike {
         let resp = self.query(request_body)?;
         self.history_mut().push(general::Message {
             role: "tool".to_string(),
-            // role: tool,
             content: resp.clone(),
         });
         Ok(resp)
     }
     fn prompt(&mut self, prompt: String) -> LlmResult<String> {
-        let mut ans = <Self as LlmLike>::prompt(self, prompt).unwrap();
-        ans = String::from(ans.trim());
+        let user_cue = self.user_cue();
+
+        self.history_mut().push(general::Message {
+            role: user_cue.to_string(),
+            content: prompt,
+        });
+
+        let request_body = general::ChatRequest {
+            model: self.model().clone(),
+            messages: self.history().clone(),
+            stream: false,
+            tools: Some(self.registered_tools().clone()),
+        };
+
+        eprintln!(
+            "[ToolReady::prompt] request body:\n{}",
+            serde_json::to_string_pretty(&request_body).unwrap()
+        );
+
+        let resp = self.query(request_body)?;
+        self.history_mut().push(general::Message {
+            role: "assistant".to_string(),
+            content: resp.clone(),
+        });
+
+        let mut ans = String::from(resp.trim());
         eprintln!("DEBUG: LLM raw response: {:?}", ans);
 
         while ans.starts_with("TOOL_CALL") {
             println!("tool: {}", ans);
 
-            let tool: &Tool = if ans.contains("search") {
+            let tool: &ToolFn = if ans.contains("search") {
                 self.tools().get("search_tool").unwrap()
             } else if ans.contains("add") {
                 self.tools().get("add_tool").unwrap()

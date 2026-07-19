@@ -1,3 +1,4 @@
+use crate::tooling;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -11,6 +12,8 @@ pub struct ChatRequest {
     pub model: String,
     pub messages: Vec<Message>,
     pub stream: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tools: Option<Vec<tooling::Tool>>,
 }
 
 #[derive(Deserialize, Debug)]
