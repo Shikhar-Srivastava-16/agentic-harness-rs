@@ -18,6 +18,7 @@
 	  ripgrep
           z3
 	  gh
+	  drawio
 	  opencode
         ];
 
