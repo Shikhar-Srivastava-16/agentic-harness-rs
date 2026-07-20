@@ -1,12 +1,13 @@
 use thiserror::Error;
 
+pub mod config;
 pub mod format;
 pub mod general;
 pub mod minimax;
 pub mod ollama;
 pub mod tooling;
 
-use tooling::Tool;
+use tooling::ToolDef;
 use tooling::ToolFn;
 use tooling::ToolMap;
 
@@ -28,13 +29,17 @@ pub mod private {
     }
 }
 
+fn msg(role: &str, content: Option<String>, tool_calls: Option<Vec<general::ToolCall>>, tool_name: Option<String>) -> general::Message {
+    general::Message { role: role.to_string(), content, tool_calls, tool_name }
+}
+
 pub trait LlmLike {
     type Conf;
 
     /// Set up the logic needed to prompt the LLM, accesing only the associated object and the string value of a
     /// user prompt. Returns the output of the LLM
     /// Set the system prompt and change the
-    fn query(&mut self, req: general::ChatRequest) -> LlmResult<String>;
+    fn query(&mut self, req: general::ChatRequest) -> LlmResult<general::ChatResponse>;
     fn init(sys_prompt: Option<String>, url: Option<String>, conf: Self::Conf) -> LlmResult<Self>
     where
         Self: Sized;
@@ -67,10 +72,7 @@ pub trait LlmLike {
         let user_cue = self.user_cue();
         let response_cue = self.response_cue();
 
-        self.history_mut().push(general::Message {
-            role: user_cue.to_string(),
-            content: prompt,
-        });
+        self.history_mut().push(msg(&user_cue, Some(prompt), None, None));
 
         let request_body = general::ChatRequest {
             model: self.model().clone(),
@@ -81,19 +83,17 @@ pub trait LlmLike {
 
         // query
         let resp = self.query(request_body)?;
-        self.history_mut().push(general::Message {
-            role: response_cue.to_string(),
-            content: resp.clone(),
-        });
-        Ok(resp)
+        let content = resp.message.content.unwrap_or_default();
+        self.history_mut().push(msg(&response_cue, Some(content.clone()), resp.message.tool_calls, None));
+        Ok(content)
         // query
     }
     /// You define how history is maintained for your particular model. In some cases, history
     /// might not need to be maintained by this layer at all, so this method would be a stub.
     /// Otherwise, the implementation of this method gives you complete control over the
     /// maintainance of history in your struct
-    fn add_to_history(&mut self, msg: general::Message) -> LlmResult<()> {
-        self.history_mut().push(msg);
+    fn add_to_history(&mut self, msg_obj: general::Message) -> LlmResult<()> {
+        self.history_mut().push(msg_obj);
 
         Ok(())
     }
@@ -101,20 +101,17 @@ pub trait LlmLike {
     fn summarise(&mut self, from: usize, to: usize) -> LlmResult<()> {
         assert!(from > to);
 
-        let mut msg: String = String::from("");
+        let mut msg_text: String = String::from("");
         for i in &self.history_mut()[from..=to] {
-            msg += i.content.as_str();
+            msg_text += i.content.as_deref().unwrap_or("");
         }
 
         // NOTE: this syntax is notable. The two `LlmLike` and `ToolReady` are both used to
         // represent LLMs and `ToolReady` is dependent on `LlmLike`
         // This means that we must specify which `prompt` this is using
-        let summary = self.prompt(String::from(msg.clone()));
+        let summary = self.prompt(String::from(msg_text.clone()));
         self.history_mut().reverse();
-        self.history_mut().push(general::Message {
-            role: String::from("user"),
-            content: summary.unwrap(),
-        });
+        self.history_mut().push(msg("user", Some(summary.unwrap()), None, None));
         self.history_mut().reverse();
 
         Ok(())
@@ -123,10 +120,7 @@ pub trait LlmLike {
     fn set_sys_prompt(&mut self, sys_prompt: String) -> LlmResult<()> {
         if self.sys_prompt().is_none() {
             self.private_set_sys_pr(sys_prompt, private::Filter::new());
-            let _ = self.add_to_history(general::Message {
-                role: "system".to_string(),
-                content: self.sys_prompt().clone().unwrap(),
-            });
+            let _ = self.add_to_history(msg("system", self.sys_prompt().clone(), None, None));
             Ok(())
         } else {
             // NOTE: This might not be correct, check conventions
@@ -150,19 +144,17 @@ pub trait Memory {}
 pub trait ToolReady: LlmLike {
     fn tool_cue(&self) -> String;
     fn tools(&self) -> &ToolMap;
-    fn registered_tools(&self) -> &Vec<Tool>;
+    fn registered_tools(&self) -> &Vec<ToolDef>;
     fn register_tool(
         &mut self,
         name: String,
         description: String,
+        parameters: serde_json::Value,
         func: Box<ToolFn>,
     ) -> LlmResult<()>;
 
-    fn tool_respond(&mut self, prompt: String) -> LlmResult<String> {
-        self.history_mut().push(general::Message {
-            role: "assistant".to_string(),
-            content: prompt,
-        });
+    fn tool_respond(&mut self, tool_name: String, tool_output: String) -> LlmResult<general::ChatResponse> {
+        self.history_mut().push(msg("tool", Some(tool_output), None, Some(tool_name)));
 
         let request_body = general::ChatRequest {
             model: self.model().clone(),
@@ -174,19 +166,15 @@ pub trait ToolReady: LlmLike {
         eprintln!("[tool_respond]: TOOL RESPONSE: {:#?}", request_body);
 
         let resp = self.query(request_body)?;
-        self.history_mut().push(general::Message {
-            role: "tool".to_string(),
-            content: resp.clone(),
-        });
+        let content = resp.message.content.clone().unwrap_or_default();
+        self.history_mut().push(msg("assistant", Some(content), resp.message.tool_calls.clone(), None));
         Ok(resp)
     }
+
     fn prompt(&mut self, prompt: String) -> LlmResult<String> {
         let user_cue = self.user_cue();
 
-        self.history_mut().push(general::Message {
-            role: user_cue.to_string(),
-            content: prompt,
-        });
+        self.history_mut().push(msg(&user_cue, Some(prompt), None, None));
 
         let request_body = general::ChatRequest {
             model: self.model().clone(),
@@ -200,31 +188,42 @@ pub trait ToolReady: LlmLike {
             serde_json::to_string_pretty(&request_body).unwrap()
         );
 
-        let resp = self.query(request_body)?;
-        self.history_mut().push(general::Message {
-            role: "assistant".to_string(),
-            content: resp.clone(),
-        });
+        let mut resp = self.query(request_body)?;
+        let mut content = resp.message.content.clone().unwrap_or_default();
+        self.history_mut().push(msg("assistant", Some(content.clone()), resp.message.tool_calls.clone(), None));
 
-        let mut ans = String::from(resp.trim());
-        eprintln!("DEBUG: LLM raw response: {:?}", ans);
+        eprintln!("\n\nDEBUG: LLM raw response: {:?}\n\n", content);
 
-        while ans.starts_with("TOOL_CALL") {
-            println!("tool: {}", ans);
+        // Structured tool call loop
+        while let Some(tool_calls) = resp.message.tool_calls.clone() {
+            if tool_calls.is_empty() {
+                break;
+            }
 
-            let tool: &ToolFn = if ans.contains("search") {
-                self.tools().get("search_tool").unwrap()
-            } else if ans.contains("add") {
-                self.tools().get("add_tool").unwrap()
-            } else {
-                panic!("Unknown tool call: {}", ans)
-            };
-            let tool_out = crate::tooling::run_tool(tool, String::from(ans)).unwrap();
+            for tc in &tool_calls {
+                let func_name = &tc.function.name;
+                let args = &tc.function.arguments;
+                eprintln!(
+                    "[ToolReady::prompt] tool call: {}({})",
+                    func_name, args
+                );
 
-            // FIXME: More Error Handling
-            ans = String::from(self.tool_respond(String::from(tool_out)).unwrap().trim());
+                let tool_fn: &ToolFn = self
+                    .tools()
+                    .get(func_name)
+                    .unwrap_or_else(|| panic!("Unknown tool: {}", func_name));
+
+                let args_str = args.to_string();
+                let tool_out = crate::tooling::run_tool(tool_fn, args_str)?;
+                eprintln!("[ToolReady::prompt] tool output: {}", tool_out);
+
+                resp = self.tool_respond(func_name.clone(), tool_out)?;
+            }
+
+            content = resp.message.content.clone().unwrap_or_default();
         }
-        Ok(String::from(ans))
+
+        Ok(content)
     }
 }
 

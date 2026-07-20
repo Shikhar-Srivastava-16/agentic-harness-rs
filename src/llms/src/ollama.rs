@@ -4,7 +4,8 @@ use crate::LlmLike;
 use crate::LlmResult;
 use crate::ToolReady;
 use crate::general;
-use crate::tooling::Tool;
+use crate::tooling::FunctionDef;
+use crate::tooling::ToolDef;
 use crate::tooling::ToolFn;
 use crate::tooling::ToolMap;
 use std::collections::HashMap;
@@ -37,7 +38,7 @@ pub struct Ollama {
     hist_config: HistConfig,
     timeout: u64,
     pub tools: ToolMap,
-    pub registered_tools: Vec<Tool>,
+    pub registered_tools: Vec<ToolDef>,
 }
 
 impl Default for Ollama {
@@ -79,7 +80,7 @@ impl LlmLike for Ollama {
         &self.timeout
     }
 
-    fn query(&mut self, request_body: general::ChatRequest) -> LlmResult<String> {
+    fn query(&mut self, request_body: general::ChatRequest) -> LlmResult<general::ChatResponse> {
         let client = reqwest::blocking::Client::builder()
             .timeout(std::time::Duration::from_secs(self.timeout)) // 5 minutes
             .build()
@@ -88,8 +89,11 @@ impl LlmLike for Ollama {
         let response = client.post(&api_url).json(&request_body).send()?;
 
         if response.status().is_success() {
-            let chat_response: general::ChatResponse = response.json()?;
-            Ok(chat_response.message.content)
+            let mut chat_response: general::ChatResponse = response.json()?;
+            if chat_response.tool_calls.is_some() && chat_response.message.tool_calls.is_none() {
+                chat_response.message.tool_calls = chat_response.tool_calls.clone();
+            }
+            Ok(chat_response)
         } else {
             // FIXME: This needs to be changed to properly write errors text
             let error_text = response.text()?;
@@ -143,7 +147,7 @@ impl ToolReady for Ollama {
         &self.tools
     }
 
-    fn registered_tools(&self) -> &Vec<Tool> {
+    fn registered_tools(&self) -> &Vec<ToolDef> {
         &self.registered_tools
     }
 
@@ -151,11 +155,16 @@ impl ToolReady for Ollama {
         &mut self,
         name: String,
         description: String,
+        parameters: serde_json::Value,
         func: Box<ToolFn>,
     ) -> LlmResult<()> {
-        self.registered_tools.push(Tool {
-            name: name.clone(),
-            description,
+        self.registered_tools.push(ToolDef {
+            tool_type: "function".to_string(),
+            function: FunctionDef {
+                name: name.clone(),
+                description,
+                parameters,
+            },
         });
         self.tools.insert(name, func);
         Ok(())

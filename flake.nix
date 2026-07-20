@@ -13,6 +13,7 @@
         pkgs = import nixpkgs { inherit system; };
         # Dependencies for development that are not system packages, but still required for development (eg; z3 and JDK)
         DevDependencies = with pkgs; [
+	  tmux
           python3
 	  ripgrep
           z3

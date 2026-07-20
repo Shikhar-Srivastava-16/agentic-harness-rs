@@ -3,7 +3,8 @@ use crate::LlmLike;
 use crate::LlmResult;
 use crate::ToolReady;
 use crate::general;
-use crate::tooling::Tool;
+use crate::tooling::FunctionDef;
+use crate::tooling::ToolDef;
 use crate::tooling::ToolFn;
 use crate::tooling::ToolMap;
 use serde::Deserialize;
@@ -18,7 +19,7 @@ pub struct Minimax {
     hist: Vec<general::Message>,
     timeout: u64,
     pub tools: ToolMap,
-    pub registered_tools: Vec<Tool>,
+    pub registered_tools: Vec<ToolDef>,
 }
 
 impl Default for Minimax {
@@ -71,7 +72,7 @@ impl LlmLike for Minimax {
         &self.timeout
     }
 
-    fn query(&mut self, request_body: general::ChatRequest) -> LlmResult<String> {
+    fn query(&mut self, request_body: general::ChatRequest) -> LlmResult<general::ChatResponse> {
         let client = reqwest::blocking::Client::builder()
             .timeout(std::time::Duration::from_secs(self.timeout))
             .build()
@@ -91,12 +92,21 @@ impl LlmLike for Minimax {
 
         if response.status().is_success() {
             let nv: NvidiaResponse = response.json()?;
-            Ok(nv
+            let content = nv
                 .choices
                 .into_iter()
                 .next()
                 .map(|c| c.message.content)
-                .unwrap_or_default())
+                .unwrap_or_default();
+            Ok(general::ChatResponse {
+                message: general::Message {
+                    role: "assistant".to_string(),
+                    content: Some(content),
+                    tool_calls: None,
+                    tool_name: None,
+                },
+                tool_calls: None,
+            })
         } else {
             let error_text = response.text()?;
             println!("Minimax: Error: {}", error_text);
@@ -107,7 +117,7 @@ impl LlmLike for Minimax {
     fn init(sys_prompt: Option<String>, url: Option<String>, conf: Self::Conf) -> LlmResult<Self> {
         let mut st = Minimax::default();
         if let Some(spr) = sys_prompt {
-            st.set_sys_prompt(spr);
+            let _ = st.set_sys_prompt(spr);
         }
         if let Some(u) = url {
             st.api_url = u;
@@ -143,7 +153,7 @@ impl ToolReady for Minimax {
         &self.tools
     }
 
-    fn registered_tools(&self) -> &Vec<Tool> {
+    fn registered_tools(&self) -> &Vec<ToolDef> {
         &self.registered_tools
     }
 
@@ -151,11 +161,16 @@ impl ToolReady for Minimax {
         &mut self,
         name: String,
         description: String,
+        parameters: serde_json::Value,
         func: Box<ToolFn>,
     ) -> LlmResult<()> {
-        self.registered_tools.push(Tool {
-            name: name.clone(),
-            description,
+        self.registered_tools.push(ToolDef {
+            tool_type: "function".to_string(),
+            function: FunctionDef {
+                name: name.clone(),
+                description,
+                parameters,
+            },
         });
         self.tools.insert(name, func);
         Ok(())
