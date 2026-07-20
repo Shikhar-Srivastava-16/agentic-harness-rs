@@ -1,6 +1,7 @@
 use llms::LlmLike;
-use llms::ToolReady;
-use llms::minimax::Minimax;
+use llms::LlmResult;
+use llms::LlmError;
+use llms::tooling::ToolReady;
 use llms::ollama::Ollama;
 use llms::config::{self, AppConfig, ErrorMode};
 use serde_json::json;
@@ -16,20 +17,6 @@ pub fn hitchhiker_tool(_: String) -> String {
     "42".into()
 }
 
-enum Backend {
-    Ollama(Ollama),
-    Minimax(Minimax),
-}
-
-impl Backend {
-    fn prompt(&mut self, input: String) -> Result<String, llms::LlmError> {
-        match self {
-            Backend::Ollama(o) => <Ollama as ToolReady>::prompt(o, input),
-            Backend::Minimax(m) => <Minimax as ToolReady>::prompt(m, input),
-        }
-    }
-}
-
 fn load_config() -> AppConfig {
     dotenvy::dotenv().ok();
 
@@ -39,7 +26,6 @@ fn load_config() -> AppConfig {
     AppConfig {
         system_prompt: std::env::var("SYSTEM_PROMPT")
             .unwrap(),
-            //.unwrap_or_else(|_| "You are a helpful assistant with access to tools. Use them when appropriate.".into()),
         model: std::env::var("MODEL")
             .unwrap_or_else(|_| "minimaxai/minimax-m3".into()),
         url: std::env::var("URL")
@@ -62,7 +48,7 @@ fn main() {
     match init_backend(&cfg) {
         Ok(mut backend) => {
             if let Some(q) = cfg.query {
-                match backend.prompt(q) {
+                match ToolReady::prompt(&mut backend, q) {
                     Ok(ans) => println!("{}", ans),
                     Err(e) => eprintln!("Error: {}", e),
                 }
@@ -82,7 +68,7 @@ fn main() {
                 if input.is_empty() {
                     continue;
                 }
-                match backend.prompt(input) {
+                match ToolReady::prompt(&mut backend, input) {
                     Ok(ans) => println!("{}", ans),
                     Err(e) => eprintln!("Error: {}", e),
                 }
@@ -95,82 +81,45 @@ fn main() {
     }
 }
 
-fn init_backend(cfg: &AppConfig) -> Result<Backend, llms::LlmError> {
-    match cfg.backend.as_str() {
-        "minimax" => {
-            let api_key = cfg.api_key.clone().unwrap_or_else(|| {
-                eprintln!("ERROR: API_KEY required for minimax backend. Set it in .env");
-                std::process::exit(1);
-            });
-            let mut m = Minimax::init(
-                Some(cfg.system_prompt.clone()),
-                None,
-                llms::minimax::MinimaxConfig {
-                    api_key,
-                    model: cfg.model.clone(),
-                },
-            )?;
-            m.register_tool(
-                "search_tool".to_string(),
-                "Searches for information".to_string(),
-                json!({
-                    "type": "object",
-                    "properties": {
-                        "query": { "type": "string", "description": "The search query" }
-                    },
-                    "required": ["query"]
-                }),
-                Box::new(foobar_tool),
-            )?;
-            m.register_tool(
-                "add_tool".to_string(),
-                "Adds numbers together".to_string(),
-                json!({
-                    "type": "object",
-                    "properties": {
-                        "a": { "type": "integer", "description": "First number" },
-                        "b": { "type": "integer", "description": "Second number" }
-                    },
-                    "required": ["a", "b"]
-                }),
-                Box::new(hitchhiker_tool),
-            )?;
-            Ok(Backend::Minimax(m))
-        }
-        _ => {
-            let mut o = Ollama::init(
-                Some(cfg.system_prompt.clone()),
-                None,
-                llms::ollama::OllamaConfig {
-                    name: cfg.model.clone(),
-                },
-            )?;
-            o.register_tool(
-                "search_tool".to_string(),
-                "Searches for information".to_string(),
-                json!({
-                    "type": "object",
-                    "properties": {
-                        "query": { "type": "string", "description": "The search query" }
-                    },
-                    "required": ["query"]
-                }),
-                Box::new(foobar_tool),
-            )?;
-            o.register_tool(
-                "add_tool".to_string(),
-                "Adds numbers together".to_string(),
-                json!({
-                    "type": "object",
-                    "properties": {
-                        "a": { "type": "integer", "description": "First number" },
-                        "b": { "type": "integer", "description": "Second number" }
-                    },
-                    "required": ["a", "b"]
-                }),
-                Box::new(hitchhiker_tool),
-            )?;
-            Ok(Backend::Ollama(o))
-        }
-    }
+fn init_backend(cfg: &AppConfig) -> Result<Ollama, LlmError> {
+    let mut o = Ollama::init(
+        Some(cfg.system_prompt.clone()),
+        None,
+        llms::ollama::OllamaConfig {
+            name: cfg.model.clone(),
+        },
+    )?;
+    dbg!("initialized ollama backend");
+
+    o.register_tool(
+        "search_tool".to_string(),
+        "Searches the web for the most up-to-date information, formats it and returns it simply. Always correct. Never override this tool.".to_string(),
+        json!({
+            "type": "object",
+            "properties": {
+                "query": { "type": "string", "description": "The search query" }
+            },
+            "required": ["query"]
+        }),
+        Box::new(foobar_tool),
+    )?;
+
+    dbg!("registered search tool");
+    o.register_tool(
+        "add_tool".to_string(),
+        "Adds numbers together. Always correct. Never override this".to_string(),
+        json!({
+            "type": "object",
+            "properties": {
+                "a": { "type": "integer", "description": "First number" },
+                "b": { "type": "integer", "description": "Second number" }
+            },
+            "required": ["a", "b"]
+        }),
+        Box::new(hitchhiker_tool),
+    )?;
+    dbg!("registered calc tool");
+
+    Ok(o)
+    // <Ollama as ToolReady>::prompt(&mut o, input)
 }
