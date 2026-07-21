@@ -43,7 +43,7 @@ pub trait ToolReady: LlmLike {
         let request_body = general::ChatRequest {
             model: self.model().clone(),
             messages: self.history().clone(),
-            stream: false,
+           stream: false,
             tools: Some(self.registered_tools().clone()),
         };
 

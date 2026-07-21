@@ -1,7 +1,7 @@
 use crate::LlmError;
 use crate::LlmLike;
 use crate::LlmResult;
-use crate::ToolReady;
+use crate::tooling::ToolReady;
 use crate::general;
 use crate::tooling::FunctionDef;
 use crate::tooling::ToolDef;

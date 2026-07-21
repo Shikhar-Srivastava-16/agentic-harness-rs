@@ -1,5 +1,4 @@
 use llms::LlmLike;
-use llms::LlmResult;
 use llms::LlmError;
 use llms::tooling::ToolReady;
 use llms::ollama::Ollama;
