@@ -41,7 +41,7 @@
         ];
 
 	ollamaModels = with pkgs; [
-	  "qwen3:8b"
+	  "gemma4:e4b"
 	];
 
         clangMkShell = pkgs.mkShell.override { stdenv = pkgs.clangStdenv; };
@@ -58,12 +58,6 @@
           LIBCLANG_PATH="${pkgs.llvmPackages.libclang.lib}/lib";
           shellHook = ''
             export PATH="${pkgs.clangStdenv.cc}/bin:$PATH";
-	    for model in ${toString ollamaModels}; do
-              if ! ${pkgs.ollama}/bin/ollama list | grep -q "^$model"; then
-                echo "Pulling ollama model: $model"
-                ${pkgs.ollama}/bin/ollama pull "$model"
-	      fi
-	    done
           '';
         };
       });

@@ -8,7 +8,7 @@ use std::io::{self, Write};
 
 pub fn foobar_tool(_: String) -> String {
     println!("\n\n====== using foobar tool (search) ========\n\n");
-    "Kamala Harris".into()
+    "Jane Goodwin".into()
 }
 
 pub fn hitchhiker_tool(_: String) -> String {
@@ -38,46 +38,39 @@ fn load_config() -> AppConfig {
 }
 
 fn main() {
-    let cfg = load_config();
-    config::init(cfg.clone());
+let cfg = load_config();
+config::init(cfg.clone());
 
-    println!("Config loaded: backend={}, model={}, error_mode={:?}",
-        cfg.backend, cfg.model, cfg.error_mode);
+println!("Config loaded: backend={}, model={}, error_mode={:?}",
+    cfg.backend, cfg.model, cfg.error_mode);
 
-    match init_backend(&cfg) {
-        Ok(mut backend) => {
-            if let Some(q) = cfg.query {
-                match ToolReady::prompt(&mut backend, q) {
-                    Ok(ans) => println!("{}", ans),
-                    Err(e) => eprintln!("Error: {}", e),
-                }
-                return;
+let mut backend = init_backend(&cfg).unwrap();
+        if let Some(q) = cfg.query {
+            match ToolReady::prompt(&mut backend, q) {
+                Ok(ans) => println!("{}", ans),
+                Err(e) => eprintln!("Error: {}", e),
             }
+            return;
+        }
 
-            println!("LLM Chat CLI (type 'exit' to quit)");
-            loop {
-                print!("> ");
-                io::stdout().flush().unwrap();
-                let mut input = String::new();
-                io::stdin().read_line(&mut input).unwrap();
-                let input = input.trim().to_string();
-                if input.eq_ignore_ascii_case("exit") {
-                    break;
-                }
-                if input.is_empty() {
-                    continue;
-                }
-                match ToolReady::prompt(&mut backend, input) {
-                    Ok(ans) => println!("{}", ans),
-                    Err(e) => eprintln!("Error: {}", e),
-                }
+        println!("LLM Chat CLI (type 'exit' to quit)");
+        loop {
+            print!("> ");
+            io::stdout().flush().unwrap();
+            let mut input = String::new();
+            io::stdin().read_line(&mut input).unwrap();
+            let input = input.trim().to_string();
+            if input.eq_ignore_ascii_case("exit") {
+                break;
+            }
+            if input.is_empty() {
+                continue;
+            }
+            match ToolReady::prompt(&mut backend, input) {
+                Ok(ans) => println!("{}", ans),
+                Err(e) => eprintln!("Error: {}", e),
             }
         }
-        Err(e) => {
-            eprintln!("Failed to initialize backend: {}", e);
-            std::process::exit(1);
-        }
-    }
 }
 
 fn init_backend(cfg: &AppConfig) -> Result<Ollama, LlmError> {
