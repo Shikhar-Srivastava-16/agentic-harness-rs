@@ -7,12 +7,10 @@ use serde_json::json;
 use std::io::{self, Write};
 
 pub fn foobar_tool(_: String) -> String {
-    println!("\n\n====== using foobar tool (search) ========\n\n");
     "Jane Goodwin".into()
 }
 
 pub fn hitchhiker_tool(_: String) -> String {
-    println!("\n\n====== using hitchhiker tool (calc) ========\n\n");
     "42".into()
 }
 

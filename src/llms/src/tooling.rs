@@ -1,8 +1,8 @@
-use crate::LlmResult;
-use serde::Serialize;
-use crate::msg;
-use crate::general;
 use crate::LlmLike;
+use crate::LlmResult;
+use crate::general;
+use crate::msg;
+use serde::Serialize;
 
 #[derive(Serialize, Clone, Debug)]
 pub struct ToolDef {
@@ -37,8 +37,13 @@ pub trait ToolReady: LlmLike {
         func: Box<ToolFn>,
     ) -> LlmResult<()>;
 
-    fn tool_respond(&mut self, tool_name: String, tool_output: String) -> LlmResult<general::ChatResponse> {
-        self.history_mut().push(msg("tool", Some(tool_output), None, Some(tool_name)));
+    fn tool_respond(
+        &mut self,
+        tool_name: String,
+        tool_output: String,
+    ) -> LlmResult<general::ChatResponse> {
+        self.history_mut()
+            .push(msg("tool", Some(tool_output), None, Some(tool_name)));
 
         let request_body = general::ChatRequest {
             model: self.model().clone(),
@@ -48,18 +53,24 @@ pub trait ToolReady: LlmLike {
             ..Default::default()
         };
 
-        eprintln!("[tool_respond]: TOOL RESPONSE: {:#?}", request_body);
+        // eprintln!("[tool_respond]: TOOL RESPONSE: {:#?}", request_body);
 
         let resp = self.query(request_body)?;
         let content = resp.message.content.clone().unwrap_or_default();
-        self.history_mut().push(msg("assistant", Some(content), resp.message.tool_calls.clone(), None));
+        self.history_mut().push(msg(
+            "assistant",
+            Some(content),
+            resp.message.tool_calls.clone(),
+            None,
+        ));
         Ok(resp)
     }
 
     fn prompt(&mut self, prompt: String) -> LlmResult<String> {
         let user_cue = self.user_cue();
 
-        self.history_mut().push(msg(&user_cue, Some(prompt), None, None));
+        self.history_mut()
+            .push(msg(&user_cue, Some(prompt), None, None));
 
         let request_body = general::ChatRequest {
             model: self.model().clone(),
@@ -69,14 +80,21 @@ pub trait ToolReady: LlmLike {
             ..Default::default()
         };
 
-        eprintln!(
-            "[ToolReady::prompt] request body:\n{}",
-            serde_json::to_string_pretty(&request_body).unwrap()
-        );
+        dbg!("[ToolReady::prompt] request body\n {}", &request_body);
 
-        let mut resp = self.query(request_body)?;
-        let mut content = resp.message.content.clone().unwrap_or_default();
-        self.history_mut().push(msg("assistant", Some(content.clone()), resp.message.tool_calls.clone(), None));
+        let mut r = self.query(request_body);
+
+        dbg!("response done: {}", &r);
+
+        let mut resp = r?;
+        let mut content = resp.message.content.clone().unwrap();
+
+        self.history_mut().push(msg(
+            "assistant",
+            Some(content.clone()),
+            resp.message.tool_calls.clone(),
+            None,
+        ));
 
         eprintln!("\n\nDEBUG: LLM raw response: {:?}\n\n", content);
 
@@ -89,10 +107,7 @@ pub trait ToolReady: LlmLike {
             for tc in &tool_calls {
                 let func_name = &tc.function.name;
                 let args = &tc.function.arguments;
-                eprintln!(
-                    "[ToolReady::prompt] tool call: {}({})",
-                    func_name, args
-                );
+                eprintln!("[ToolReady::prompt] tool call: {}({})", func_name, args);
 
                 let tool_fn: &ToolFn = self
                     .tools()

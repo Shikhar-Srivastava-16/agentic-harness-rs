@@ -392,7 +392,7 @@ mod tests {
         };
 
         let json = serde_json::to_string_pretty(&req).unwrap();
-        println!("{json}");
+        // println!("{json}");
         assert!(json.contains("get_current_weather"));
     }
 }

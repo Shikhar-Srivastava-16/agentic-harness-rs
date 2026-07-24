@@ -2,6 +2,7 @@ use crate::HistConfig;
 use crate::LlmError;
 use crate::LlmLike;
 use crate::LlmResult;
+use crate::format;
 use crate::general;
 use crate::tooling::FunctionDef;
 use crate::tooling::ToolDef;
@@ -10,25 +11,6 @@ use crate::tooling::ToolMap;
 use crate::tooling::ToolReady;
 use std::collections::HashMap;
 
-use serde::{Deserialize, Serialize};
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Message {
-    pub role: String,
-    pub content: String,
-}
-
-#[derive(Serialize, Debug)]
-pub struct ChatRequest {
-    pub model: String,
-    pub messages: Vec<Message>,
-    pub stream: bool,
-}
-
-#[derive(Deserialize, Debug)]
-pub struct ChatResponse {
-    pub message: Message,
-}
 pub struct Ollama {
     // None system prompt is possible
     sys_pr: Option<String>,
@@ -63,6 +45,8 @@ pub struct OllamaConfig {
 
 impl LlmLike for Ollama {
     type Conf = OllamaConfig;
+    type ApiRequest = format::ollama::ChatRequest;
+    type ApiResponse = format::ollama::ChatResponse;
 
     fn user_cue(&self) -> String {
         "user".to_string()
@@ -76,7 +60,10 @@ impl LlmLike for Ollama {
         &self.timeout
     }
 
-    fn query(&mut self, request_body: general::ChatRequest) -> LlmResult<general::ChatResponse> {
+    fn raw_query(
+        &mut self,
+        request_body: general::ChatRequest,
+    ) -> LlmResult<general::ChatResponse> {
         let client = reqwest::blocking::Client::builder()
             .timeout(std::time::Duration::from_secs(self.timeout)) // 5 minutes
             .build()

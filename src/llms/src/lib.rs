@@ -4,7 +4,7 @@ pub mod config;
 pub mod format;
 pub mod general;
 // pub mod minimax;
-// pub mod ollama;
+pub mod ollama;
 pub mod tooling;
 
 use tooling::ToolReady;
@@ -94,7 +94,7 @@ pub trait LlmLike {
         let request_body = general::ChatRequest {
             model: self.model().clone(),
             messages: self.history().clone(),
-            stream: Some(false),
+            stream: None,
             tools: None,
             ..Default::default()
         };
