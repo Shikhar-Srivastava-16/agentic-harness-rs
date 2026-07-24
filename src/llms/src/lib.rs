@@ -43,23 +43,17 @@ fn msg(
 
 pub trait LlmLike {
     type Conf;
-    type ApiRequest;
-    type ApiResponse;
-
-    /// Convert the internal ChatRequest into the API-specific request type.
-    fn to_api_request(&self, req: &general::ChatRequest) -> Self::ApiRequest;
-
-    /// Convert an API-specific response back into the internal ChatResponse.
-    fn from_api_response(&self, resp: Self::ApiResponse) -> general::ChatResponse;
+    type ApiRequest: From<general::ChatRequest>;
+    type ApiResponse: Into<general::ChatResponse>;
 
     /// The low-level query each backend must implement — works with API types directly.
     fn raw_query(&mut self, req: Self::ApiRequest) -> LlmResult<Self::ApiResponse>;
 
     /// Higher-level query that does the conversion automatically.
     fn query(&mut self, req: general::ChatRequest) -> LlmResult<general::ChatResponse> {
-        let api_req = self.to_api_request(&req);
+        let api_req: Self::ApiRequest = req.into();
         let api_resp = self.raw_query(api_req)?;
-        Ok(self.from_api_response(api_resp))
+        Ok(api_resp.into())
     }
 
     fn init(sys_prompt: Option<String>, url: Option<String>, conf: Self::Conf) -> LlmResult<Self>
