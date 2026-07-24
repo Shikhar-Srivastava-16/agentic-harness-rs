@@ -1,3 +1,4 @@
+use crate::tooling::ToolDef;
 use serde::{Deserialize, Serialize};
 
 // Request Body
@@ -17,7 +18,7 @@ pub struct ChatRequest {
     pub model: String,
     pub messages: Vec<Message>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
-    pub tools: Option<Vec<ChatTool>>,
+    pub tools: Option<Vec<ToolDef>>,
     // format is in schemas but we only support JSON, so not needed
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub seed: Option<usize>,
@@ -45,25 +46,6 @@ pub struct ChatRequest {
     // TODO: Add logging token probabilities
     // pub lobprobs: boolean,
     // pub top_logprobs: usize
-}
-
-#[derive(Default, Serialize, Debug)]
-pub struct ChatTool {
-    pub name: String,
-    pub description: String,
-    pub spec: ChatToolSpec,
-}
-
-#[derive(Default, Serialize, Debug)]
-pub struct ChatToolSpec {
-    pub tool_type: String,
-    pub parameters: std::collections::HashMap<String, ChatToolParamSpec>,
-}
-
-#[derive(Default, Serialize, Debug)]
-pub struct ChatToolParamSpec {
-    pub param_type: String,
-    pub param_description: String,
 }
 
 // responses

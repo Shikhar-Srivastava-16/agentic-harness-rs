@@ -2,12 +2,12 @@ use crate::HistConfig;
 use crate::LlmError;
 use crate::LlmLike;
 use crate::LlmResult;
-use crate::tooling::ToolReady;
 use crate::general;
 use crate::tooling::FunctionDef;
 use crate::tooling::ToolDef;
 use crate::tooling::ToolFn;
 use crate::tooling::ToolMap;
+use crate::tooling::ToolReady;
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
@@ -60,10 +60,6 @@ impl Default for Ollama {
 pub struct OllamaConfig {
     pub name: String,
 }
-
-// user cue: "user"
-// response cue: "assistant"
-// tool cue: "tool"
 
 impl LlmLike for Ollama {
     type Conf = OllamaConfig;

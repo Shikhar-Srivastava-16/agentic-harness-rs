@@ -43,8 +43,9 @@ pub trait ToolReady: LlmLike {
         let request_body = general::ChatRequest {
             model: self.model().clone(),
             messages: self.history().clone(),
-           stream: false,
+            stream: Some(false),
             tools: Some(self.registered_tools().clone()),
+            ..Default::default()
         };
 
         eprintln!("[tool_respond]: TOOL RESPONSE: {:#?}", request_body);
@@ -63,8 +64,9 @@ pub trait ToolReady: LlmLike {
         let request_body = general::ChatRequest {
             model: self.model().clone(),
             messages: self.history().clone(),
-            stream: false,
+            stream: Some(false),
             tools: Some(self.registered_tools().clone()),
+            ..Default::default()
         };
 
         eprintln!(

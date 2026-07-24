@@ -3,8 +3,8 @@ use thiserror::Error;
 pub mod config;
 pub mod format;
 pub mod general;
-pub mod minimax;
-pub mod ollama;
+// pub mod minimax;
+// pub mod ollama;
 pub mod tooling;
 
 use tooling::ToolReady;
@@ -43,11 +43,25 @@ fn msg(
 
 pub trait LlmLike {
     type Conf;
+    type ApiRequest;
+    type ApiResponse;
 
-    /// Set up the logic needed to prompt the LLM, accesing only the associated object and the string value of a
-    /// user prompt. Returns the output of the LLM
-    /// Set the system prompt and change the
-    fn query(&mut self, req: general::ChatRequest) -> LlmResult<general::ChatResponse>;
+    /// Convert the internal ChatRequest into the API-specific request type.
+    fn to_api_request(&self, req: &general::ChatRequest) -> Self::ApiRequest;
+
+    /// Convert an API-specific response back into the internal ChatResponse.
+    fn from_api_response(&self, resp: Self::ApiResponse) -> general::ChatResponse;
+
+    /// The low-level query each backend must implement — works with API types directly.
+    fn raw_query(&mut self, req: Self::ApiRequest) -> LlmResult<Self::ApiResponse>;
+
+    /// Higher-level query that does the conversion automatically.
+    fn query(&mut self, req: general::ChatRequest) -> LlmResult<general::ChatResponse> {
+        let api_req = self.to_api_request(&req);
+        let api_resp = self.raw_query(api_req)?;
+        Ok(self.from_api_response(api_resp))
+    }
+
     fn init(sys_prompt: Option<String>, url: Option<String>, conf: Self::Conf) -> LlmResult<Self>
     where
         Self: Sized;
