@@ -13,13 +13,13 @@
         pkgs = import nixpkgs { inherit system; };
         # Dependencies for development that are not system packages, but still required for development (eg; z3 and JDK)
         DevDependencies = with pkgs; [
-	  tmux
+          tmux
           python3
-	  ripgrep
+          ripgrep
           z3
-	  gh
-	  drawio
-	  opencode
+          gh
+          drawio
+          opencode
         ];
 
         # System libraries go here (e.g. openssl, pkg-config)
@@ -35,14 +35,15 @@
         RustDependencies = with pkgs; [
           cargo
           rustc
+          rust-analyzer
           rustfmt
           clippy
           rust-analyzer
         ];
 
-	ollamaModels = with pkgs; [
-	  "gemma4:e4b"
-	];
+        ollamaModels = with pkgs; [
+          "gemma4:e4b"
+        ];
 
         clangMkShell = pkgs.mkShell.override { stdenv = pkgs.clangStdenv; };
 
@@ -50,7 +51,7 @@
       {
         devShells.default = clangMkShell {
           buildInputs = with pkgs; [
-	    ollama
+            ollama
           ] ++ MedievalDependencies ++ DevDependencies ++ RustDependencies;
 
           # Fixes rust-analyzer looking for standard library source code

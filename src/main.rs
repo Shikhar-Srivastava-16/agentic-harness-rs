@@ -1,8 +1,8 @@
-use llms::LlmLike;
 use llms::LlmError;
-use llms::tooling::ToolReady;
-use llms::ollama::Ollama;
+use llms::LlmLike;
 use llms::config::{self, AppConfig, ErrorMode};
+use llms::ollama::Ollama;
+use llms::tooling::ToolReady;
 use serde_json::json;
 use std::io::{self, Write};
 
@@ -19,58 +19,55 @@ pub fn hitchhiker_tool(_: String) -> String {
 fn load_config() -> AppConfig {
     dotenvy::dotenv().ok();
 
-    let error_mode = std::env::var("ERROR_MODE")
-        .unwrap_or_else(|_| "strict".into());
+    let error_mode = std::env::var("ERROR_MODE").unwrap_or_else(|_| "strict".into());
 
     AppConfig {
-        system_prompt: std::env::var("SYSTEM_PROMPT")
-            .unwrap(),
-        model: std::env::var("MODEL")
-            .unwrap_or_else(|_| "minimaxai/minimax-m3".into()),
-        url: std::env::var("URL")
-            .unwrap_or_else(|_| "http://localhost:11434".into()),
+        system_prompt: std::env::var("SYSTEM_PROMPT").unwrap(),
+        model: std::env::var("MODEL").unwrap_or_else(|_| "minimaxai/minimax-m3".into()),
+        url: std::env::var("URL").unwrap_or_else(|_| "http://localhost:11434".into()),
         api_key: std::env::var("API_KEY").ok().filter(|s| !s.is_empty()),
-        backend: std::env::var("BACKEND")
-            .unwrap_or_else(|_| "ollama".into()),
+        backend: std::env::var("BACKEND").unwrap_or_else(|_| "ollama".into()),
         query: std::env::var("QUERY").ok().filter(|s| !s.is_empty()),
         error_mode: ErrorMode::from_str(&error_mode),
     }
 }
 
 fn main() {
-let cfg = load_config();
-config::init(cfg.clone());
+    let cfg = load_config();
+    config::init(cfg.clone());
 
-println!("Config loaded: backend={}, model={}, error_mode={:?}",
-    cfg.backend, cfg.model, cfg.error_mode);
+    println!(
+        "Config loaded: backend={}, model={}, error_mode={:?}",
+        cfg.backend, cfg.model, cfg.error_mode
+    );
 
-let mut backend = init_backend(&cfg).unwrap();
-        if let Some(q) = cfg.query {
-            match ToolReady::prompt(&mut backend, q) {
-                Ok(ans) => println!("{}", ans),
-                Err(e) => eprintln!("Error: {}", e),
-            }
-            return;
+    let mut backend = init_backend(&cfg).unwrap();
+    if let Some(q) = cfg.query {
+        match ToolReady::prompt(&mut backend, q) {
+            Ok(ans) => println!("{}", ans),
+            Err(e) => eprintln!("Error: {}", e),
         }
+        return;
+    }
 
-        println!("LLM Chat CLI (type 'exit' to quit)");
-        loop {
-            print!("> ");
-            io::stdout().flush().unwrap();
-            let mut input = String::new();
-            io::stdin().read_line(&mut input).unwrap();
-            let input = input.trim().to_string();
-            if input.eq_ignore_ascii_case("exit") {
-                break;
-            }
-            if input.is_empty() {
-                continue;
-            }
-            match ToolReady::prompt(&mut backend, input) {
-                Ok(ans) => println!("{}", ans),
-                Err(e) => eprintln!("Error: {}", e),
-            }
+    println!("LLM Chat CLI (type 'exit' to quit)");
+    loop {
+        print!("> ");
+        io::stdout().flush().unwrap();
+        let mut input = String::new();
+        io::stdin().read_line(&mut input).unwrap();
+        let input = input.trim().to_string();
+        if input.eq_ignore_ascii_case("exit") {
+            break;
         }
+        if input.is_empty() {
+            continue;
+        }
+        match ToolReady::prompt(&mut backend, input) {
+            Ok(ans) => println!("{}", ans),
+            Err(e) => eprintln!("Error: {}", e),
+        }
+    }
 }
 
 fn init_backend(cfg: &AppConfig) -> Result<Ollama, LlmError> {
@@ -113,5 +110,4 @@ fn init_backend(cfg: &AppConfig) -> Result<Ollama, LlmError> {
     dbg!("registered calc tool");
 
     Ok(o)
-    // <Ollama as ToolReady>::prompt(&mut o, input)
 }

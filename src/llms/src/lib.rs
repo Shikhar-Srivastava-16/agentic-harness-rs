@@ -7,9 +7,6 @@ pub mod minimax;
 pub mod ollama;
 pub mod tooling;
 
-use tooling::ToolDef;
-use tooling::ToolFn;
-use tooling::ToolMap;
 use tooling::ToolReady;
 
 type LlmResult<T> = std::result::Result<T, LlmError>;
@@ -30,8 +27,18 @@ pub mod private {
     }
 }
 
-fn msg(role: &str, content: Option<String>, tool_calls: Option<Vec<general::ToolCall>>, tool_name: Option<String>) -> general::Message {
-    general::Message { role: role.to_string(), content, tool_calls, tool_name }
+fn msg(
+    role: &str,
+    content: Option<String>,
+    tool_calls: Option<Vec<general::ToolCall>>,
+    tool_name: Option<String>,
+) -> general::Message {
+    general::Message {
+        role: role.to_string(),
+        content,
+        tool_calls,
+        tool_name,
+    }
 }
 
 pub trait LlmLike {
@@ -73,19 +80,26 @@ pub trait LlmLike {
         let user_cue = self.user_cue();
         let response_cue = self.response_cue();
 
-        self.history_mut().push(msg(&user_cue, Some(prompt), None, None));
+        self.history_mut()
+            .push(msg(&user_cue, Some(prompt), None, None));
 
         let request_body = general::ChatRequest {
             model: self.model().clone(),
             messages: self.history().clone(),
-            stream: false,
+            stream: Some(false),
             tools: None,
+            ..Default::default()
         };
 
         // query
         let resp = self.query(request_body)?;
         let content = resp.message.content.unwrap_or_default();
-        self.history_mut().push(msg(&response_cue, Some(content.clone()), resp.message.tool_calls, None));
+        self.history_mut().push(msg(
+            &response_cue,
+            Some(content.clone()),
+            resp.message.tool_calls,
+            None,
+        ));
         Ok(content)
         // query
     }
@@ -112,7 +126,8 @@ pub trait LlmLike {
         // This means that we must specify which `prompt` this is using
         let summary = self.prompt(String::from(msg_text.clone()));
         self.history_mut().reverse();
-        self.history_mut().push(msg("user", Some(summary.unwrap()), None, None));
+        self.history_mut()
+            .push(msg("user", Some(summary.unwrap()), None, None));
         self.history_mut().reverse();
 
         Ok(())

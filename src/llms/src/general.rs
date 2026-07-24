@@ -1,8 +1,7 @@
-use crate::tooling;
 use serde::{Deserialize, Serialize};
 
 // Request Body
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub struct Message {
     pub role: String,
     #[serde(skip_serializing_if = "Option::is_none", default)]
@@ -13,7 +12,7 @@ pub struct Message {
     pub tool_name: Option<String>,
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Default, Serialize, Debug)]
 pub struct ChatRequest {
     pub model: String,
     pub messages: Vec<Message>,
@@ -43,36 +42,32 @@ pub struct ChatRequest {
     pub think: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub keep_alive: Option<String>,
-
     // TODO: Add logging token probabilities
     // pub lobprobs: boolean,
     // pub top_logprobs: usize
-
-    #[serde(skip_serializing_if = "Option::is_none", default)]
-    pub tools: Option<Vec<tooling::ToolDef>>,
-
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Default, Serialize, Debug)]
 pub struct ChatTool {
     pub name: String,
     pub description: String,
-    pub spec: ChatToolSpec
+    pub spec: ChatToolSpec,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Default, Serialize, Debug)]
 pub struct ChatToolSpec {
     pub tool_type: String,
-    pub parameters: std::collections::HashMap<String, ChatToolParamSpec>
+    pub parameters: std::collections::HashMap<String, ChatToolParamSpec>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Default, Serialize, Debug)]
 pub struct ChatToolParamSpec {
     pub param_type: String,
-    pub param_description: String
+    pub param_description: String,
 }
 
-// response
+// responses
+
 #[derive(Deserialize, Debug)]
 pub struct ChatResponse {
     pub model: String,
@@ -88,9 +83,8 @@ pub struct ChatResponse {
 
     // TODO: Add logging token probabilities
     // logprobs: Vec<TokProb>
-
     #[serde(default)]
-    pub tool_calls: Option<Vec<ChatTool>>,
+    pub tool_calls: Option<Vec<ToolCall>>, // TODO: check correct type?
 }
 
 // for ollama only
