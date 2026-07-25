@@ -1,3 +1,4 @@
+use std::fmt::Debug;
 use thiserror::Error;
 
 pub mod config;
@@ -43,8 +44,8 @@ fn msg(
 
 pub trait LlmLike {
     type Conf;
-    type ApiRequest: From<general::ChatRequest>;
-    type ApiResponse: Into<general::ChatResponse>;
+    type ApiRequest: From<general::ChatRequest> + Debug;
+    type ApiResponse: Into<general::ChatResponse> + Debug;
 
     /// The low-level query each backend must implement — works with API types directly.
     fn raw_query(&mut self, req: Self::ApiRequest) -> LlmResult<Self::ApiResponse>;
@@ -52,6 +53,9 @@ pub trait LlmLike {
     /// Higher-level query that does the conversion automatically.
     fn query(&mut self, req: general::ChatRequest) -> LlmResult<general::ChatResponse> {
         let api_req: Self::ApiRequest = req.into();
+
+        eprintln!("Request: {:#?}", api_req);
+
         let api_resp = self.raw_query(api_req)?;
         Ok(api_resp.into())
     }
@@ -100,7 +104,7 @@ pub trait LlmLike {
         };
 
         // query
-        let resp = self.query(request_body)?;
+        let resp = self.query(request_body.into())?;
         let content = resp.message.content.unwrap_or_default();
         self.history_mut().push(msg(
             &response_cue,

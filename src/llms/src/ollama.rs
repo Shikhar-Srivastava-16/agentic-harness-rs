@@ -45,8 +45,8 @@ pub struct OllamaConfig {
 
 impl LlmLike for Ollama {
     type Conf = OllamaConfig;
-    type ApiRequest = format::ollama::ChatRequest;
-    type ApiResponse = format::ollama::ChatResponse;
+    type ApiRequest = format::ollama::OllamaChatRequest;
+    type ApiResponse = format::ollama::OllamaChatResponse;
 
     fn user_cue(&self) -> String {
         "user".to_string()
@@ -62,23 +62,19 @@ impl LlmLike for Ollama {
 
     fn raw_query(
         &mut self,
-        request_body: general::ChatRequest,
-    ) -> LlmResult<general::ChatResponse> {
+        request_body: format::ollama::OllamaChatRequest,
+    ) -> LlmResult<format::ollama::OllamaChatResponse> {
         let client = reqwest::blocking::Client::builder()
-            .timeout(std::time::Duration::from_secs(self.timeout)) // 5 minutes
+            .timeout(std::time::Duration::from_secs(self.timeout))
             .build()
             .unwrap();
         let api_url = format!("{}/api/chat", self.rest_url.trim_end_matches('/'));
         let response = client.post(&api_url).json(&request_body).send()?;
 
         if response.status().is_success() {
-            let mut chat_response: general::ChatResponse = response.json()?;
-            if chat_response.tool_calls.is_some() && chat_response.message.tool_calls.is_none() {
-                chat_response.message.tool_calls = chat_response.tool_calls.clone();
-            }
+            let chat_response: format::ollama::OllamaChatResponse = response.json()?;
             Ok(chat_response)
         } else {
-            // FIXME: This needs to be changed to properly write errors text
             let error_text = response.text()?;
             println!("Ollama: Error: {}", error_text);
             Err(LlmError::Other)

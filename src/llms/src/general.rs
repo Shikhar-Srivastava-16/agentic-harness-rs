@@ -2,46 +2,31 @@ use crate::tooling::ToolDef;
 use serde::{Deserialize, Serialize};
 
 // Request Body
-#[derive(Default, Serialize, Deserialize, Debug, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct Message {
     pub role: String,
-    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub content: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub tool_calls: Option<Vec<ToolCall>>,
-    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub tool_name: Option<String>,
 }
 
-#[derive(Default, Serialize, Debug)]
+#[derive(Default, Debug)]
 pub struct ChatRequest {
     pub model: String,
     pub messages: Vec<Message>,
-    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub tools: Option<Vec<ToolDef>>,
     // format is in schemas but we only support JSON, so not needed
-    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub seed: Option<usize>,
-    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub temperature: Option<f32>,
-    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub top_p: Option<f32>,
-    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub top_k: Option<usize>,
-    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub min_p: Option<f32>,
-    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub stop: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub max_ctx_chars: Option<usize>,
-    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub max_prediction_tokens: Option<usize>,
 
-    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub stream: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub think: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub keep_alive: Option<String>,
     // TODO: Add logging token probabilities
     // pub lobprobs: boolean,
@@ -50,7 +35,7 @@ pub struct ChatRequest {
 
 // responses
 
-#[derive(Deserialize, Debug)]
+#[derive(Debug)]
 pub struct ChatResponse {
     pub model: String,
     pub created_at: String, // date-time
@@ -65,19 +50,17 @@ pub struct ChatResponse {
 
     // TODO: Add logging token probabilities
     // logprobs: Vec<TokProb>
-    #[serde(default)]
     pub tool_calls: Option<Vec<ToolCall>>, // TODO: check correct type?
 }
 
 // for ollama only
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct ToolCall {
-    #[serde(rename = "type")]
     pub tool_type: Option<String>,
     pub function: FunctionCall,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct FunctionCall {
     pub name: String,
     pub arguments: serde_json::Value,

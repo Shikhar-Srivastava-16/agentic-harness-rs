@@ -80,11 +80,9 @@ pub trait ToolReady: LlmLike {
             ..Default::default()
         };
 
-        dbg!("[ToolReady::prompt] request body\n {}", &request_body);
-
         let mut r = self.query(request_body);
 
-        dbg!("response done: {}", &r);
+        eprintln!("response done: {:#?}", &r);
 
         let mut resp = r?;
         let mut content = resp.message.content.clone().unwrap();
