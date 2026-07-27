@@ -4,7 +4,6 @@ use thiserror::Error;
 pub mod config;
 pub mod format;
 pub mod general;
-// pub mod minimax;
 pub mod ollama;
 pub mod tooling;
 
