@@ -20,6 +20,7 @@ use serde_with::skip_serializing_none;
 // Top-level request
 // ---------------------------------------------------------------------
 
+#[skip_serializing_none]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OllamaChatRequest {
     // --- required ---
@@ -27,25 +28,25 @@ pub struct OllamaChatRequest {
     pub messages: Vec<OllamaChatMessage>,
 
     // --- optional fields ---
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub tools: Option<Vec<OllamaToolDefinition>>,
     /// `"json"` or a JSON Schema object.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub format: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub options: Option<OllamaModelOptions>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub stream: Option<bool>,
     /// Boolean-ish (`"true"` / `"false"`) or a thinking level
     /// (`"high"`, `"medium"`, `"low"`, `"max"`).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub think: Option<String>,
     /// Keep-alive duration, e.g. `"5m"` or `"0"` to unload immediately.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub keep_alive: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub logprobs: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub top_logprobs: Option<u32>,
 }
 
@@ -53,16 +54,17 @@ pub struct OllamaChatRequest {
 // Messages
 // ---------------------------------------------------------------------
 
+#[skip_serializing_none]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OllamaChatMessage {
     /// One of `"system"`, `"user"`, `"assistant"`, `"tool"`.
     pub role: String,
     pub content: String,
     /// Base64-encoded images for multimodal models.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub images: Option<Vec<String>>,
     /// Tool call requests produced by the model (only on assistant messages).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub tool_calls: Option<Vec<OllamaToolCall>>,
 }
 
@@ -70,6 +72,7 @@ pub struct OllamaChatMessage {
 // Tools / function calling
 // ---------------------------------------------------------------------
 
+#[skip_serializing_none]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OllamaToolDefinition {
     /// Always `"function"`.
@@ -78,24 +81,27 @@ pub struct OllamaToolDefinition {
     pub function: OllamaFunctionDef,
 }
 
+#[skip_serializing_none]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OllamaFunctionDef {
     pub name: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub description: Option<String>,
     /// JSON Schema for the function parameters.
     pub parameters: serde_json::Value,
 }
 
+#[skip_serializing_none]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OllamaToolCall {
     pub function: OllamaFunctionCall,
 }
 
+#[skip_serializing_none]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OllamaFunctionCall {
     pub name: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub description: Option<String>,
     /// JSON object of arguments to pass to the function.
     pub arguments: serde_json::Value,
@@ -105,23 +111,24 @@ pub struct OllamaFunctionCall {
 // Model options
 // ---------------------------------------------------------------------
 
+#[skip_serializing_none]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OllamaModelOptions {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub seed: Option<i64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub temperature: Option<f32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub top_k: Option<u32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub top_p: Option<f32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub min_p: Option<f32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub stop: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub num_ctx: Option<u32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub num_predict: Option<i32>,
 }
 
@@ -149,14 +156,14 @@ pub struct OllamaChatResponse {
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct OllamaResponseMessage {
     pub role: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub content: Option<String>,
     /// Deliberate thinking trace when `think` is enabled.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub thinking: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub tool_calls: Option<Vec<OllamaToolCall>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub images: Option<Vec<String>>,
 }
 
