@@ -1,12 +1,12 @@
 use crate::LlmError;
 use crate::LlmLike;
 use crate::LlmResult;
-use crate::tooling::ToolReady;
 use crate::general;
 use crate::tooling::FunctionDef;
 use crate::tooling::ToolDef;
 use crate::tooling::ToolFn;
 use crate::tooling::ToolMap;
+use crate::tooling::ToolReady;
 use serde::Deserialize;
 use serde_json::json;
 use std::collections::HashMap;
@@ -109,7 +109,8 @@ impl LlmLike for Minimax {
             })
         } else {
             let error_text = response.text()?;
-            println!("Minimax: Error: {}", error_text);
+            #[cfg(feature = "log")]
+            dbg!("Minimax: Error: {}", error_text);
             Err(LlmError::Other)
         }
     }

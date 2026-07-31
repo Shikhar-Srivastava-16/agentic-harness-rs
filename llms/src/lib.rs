@@ -53,7 +53,8 @@ pub trait LlmLike {
     fn query(&mut self, req: general::ChatRequest) -> LlmResult<general::ChatResponse> {
         let api_req: Self::ApiRequest = req.into();
 
-        eprintln!("Request: {:#?}", api_req);
+        #[cfg(feature = "log")]
+        dbg!("Request: {:#?}", &api_req);
 
         let api_resp = self.raw_query(api_req)?;
         Ok(api_resp.into())
@@ -103,7 +104,7 @@ pub trait LlmLike {
         };
 
         // query
-        let resp = self.query(request_body.into())?;
+        let resp = self.query(request_body)?;
         let content = resp.message.content.unwrap_or_default();
         self.history_mut().push(msg(
             &response_cue,

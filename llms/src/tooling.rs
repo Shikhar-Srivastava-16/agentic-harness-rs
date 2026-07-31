@@ -53,7 +53,8 @@ pub trait ToolReady: LlmLike {
             ..Default::default()
         };
 
-        // eprintln!("[tool_respond]: TOOL RESPONSE: {:#?}", request_body);
+        #[cfg(feature = "log")]
+        dbg!("[tool_respond]: TOOL RESPONSE: {:#?}", &request_body);
 
         let resp = self.query(request_body)?;
         let content = resp.message.content.clone().unwrap_or_default();
@@ -82,7 +83,8 @@ pub trait ToolReady: LlmLike {
 
         let mut r = self.query(request_body);
 
-        eprintln!("response done: {:#?}", &r);
+        #[cfg(feature = "log")]
+        dbg!("response done: {:#?}", &r);
 
         let mut resp = r?;
         let mut content = resp.message.content.clone().unwrap();
@@ -94,7 +96,8 @@ pub trait ToolReady: LlmLike {
             None,
         ));
 
-        eprintln!("\n\nDEBUG: LLM raw response: {:?}\n\n", content);
+        #[cfg(feature = "log")]
+        dbg!("LLM raw response: {:?}\n\n", &content);
 
         // Structured tool call loop
         while let Some(tool_calls) = resp.message.tool_calls.clone() {
@@ -105,7 +108,8 @@ pub trait ToolReady: LlmLike {
             for tc in &tool_calls {
                 let func_name = &tc.function.name;
                 let args = &tc.function.arguments;
-                eprintln!("[ToolReady::prompt] tool call: {}({})", func_name, args);
+                #[cfg(feature = "log")]
+                dbg!("[ToolReady::prompt] tool call: {}({})", func_name, args);
 
                 let tool_fn: &ToolFn = self
                     .tools()
@@ -114,7 +118,8 @@ pub trait ToolReady: LlmLike {
 
                 let args_str = args.to_string();
                 let tool_out = crate::tooling::run_tool(tool_fn, args_str)?;
-                eprintln!("[ToolReady::prompt] tool output: {}", tool_out);
+                #[cfg(feature = "log")]
+                dbg!("[ToolReady::prompt] tool output: {}", &tool_out);
 
                 resp = self.tool_respond(func_name.clone(), tool_out)?;
             }
