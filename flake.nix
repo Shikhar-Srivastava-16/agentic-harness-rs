@@ -55,6 +55,18 @@
           openblas
           llvmPackages.openmp
           faiss
+          uv
+          (pkgs.python3.withPackages (python-pkgs: with python-pkgs; [
+            # select Python packages here
+            langchain
+            langchain-ollama
+            langchain-core
+            langgraph
+            matplotlib
+            pandas
+            langchain-classic
+            numpy
+          ]))
         ];
 
         # rust-specific dependencies
@@ -65,10 +77,6 @@
           rustfmt
           clippy
           rust-analyzer
-        ];
-
-        ollamaModels = with pkgs; [
-          "gemma4:e4b"
         ];
 
         clangMkShell = pkgs.mkShell.override { stdenv = pkgs.clangStdenv; };

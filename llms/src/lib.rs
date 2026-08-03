@@ -1,7 +1,3 @@
-// FIXME: put into build.rs in future
-#[cfg(all(feature = "log", feature = "bench"))]
-compile_error!("feature \"log\" and feature \"bench\" cannot be enabled at the same time");
-
 use std::fmt::Debug;
 use thiserror::Error;
 

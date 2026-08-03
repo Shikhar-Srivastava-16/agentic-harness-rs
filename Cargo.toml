@@ -3,6 +3,9 @@ name = "ollama-client"
 version = "0.1.0"
 edition = "2024"
 
+[workspace]
+members = [".", "llms", "benchmarks"]
+
 [dependencies]
 dotenvy = "0.15"
 llms = { version = "0.1.0", path = "./llms", features = ["bench"] }
