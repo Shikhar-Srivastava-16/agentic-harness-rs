@@ -1,3 +1,7 @@
+// FIXME: put into build.rs in future
+#[cfg(all(feature = "log", feature = "bench"))]
+compile_error!("feature \"log\" and feature \"bench\" cannot be enabled at the same time");
+
 use std::fmt::Debug;
 use thiserror::Error;
 
@@ -9,14 +13,15 @@ pub mod tooling;
 
 use tooling::ToolReady;
 
-type LlmResult<T> = std::result::Result<T, LlmError>;
+pub type LlmResult<T> = std::result::Result<T, LlmError>;
 
-// NOTE: For potentially supporting other forms of output, which are parrsed into structs
+/// Placeholder enum for future output types (currently only `String` is supported).
 enum LlmOutput {
     String(String),
 }
 
 pub mod private {
+    /// Crate-internal access gate; `Filter::new()` is `pub(crate)` and only callable within `llms`.
     pub struct Filter(());
     impl Filter {
         // this function can be used anywhere inside the crate but _only_ within the crate, due to
@@ -27,7 +32,8 @@ pub mod private {
     }
 }
 
-fn msg(
+/// Helper to construct a [`general::Message`] without needing to specify all fields.
+pub(crate) fn msg(
     role: &str,
     content: Option<String>,
     tool_calls: Option<Vec<general::ToolCall>>,
@@ -41,12 +47,13 @@ fn msg(
     }
 }
 
+/// Shared behaviour for all LLM backends or Llm-like objects (e.g. Ollama, which is not an LLM but behaves similarly).
 pub trait LlmLike {
     type Conf;
     type ApiRequest: From<general::ChatRequest> + Debug;
     type ApiResponse: Into<general::ChatResponse> + Debug;
 
-    /// The low-level query each backend must implement — works with API types directly.
+    /// Low-level query — works with API request/response types directly. Each backend must implement this.
     fn raw_query(&mut self, req: Self::ApiRequest) -> LlmResult<Self::ApiResponse>;
 
     /// Higher-level query that does the conversion automatically.
@@ -60,34 +67,41 @@ pub trait LlmLike {
         Ok(api_resp.into())
     }
 
+    /// Constructs a new backend instance. `sys_prompt` and `url` are optional overrides; `conf` is the backend-specific configuration type.
     fn init(sys_prompt: Option<String>, url: Option<String>, conf: Self::Conf) -> LlmResult<Self>
     where
         Self: Sized;
 
-    // Getters for default implementations
+    /// Immutable reference to the conversation history.
     fn history(&self) -> &Vec<general::Message>;
+    /// Mutable reference to the conversation history.
     fn history_mut(&mut self) -> &mut Vec<general::Message>;
+    /// The model identifier currently in use.
     fn model(&self) -> &String;
+    /// Request timeout in seconds.
     fn timeout(&self) -> &u64;
 
     /// This method allows you to set a system prompt after the LLM has been created. This is
-    /// because the system prompt is the only `dynamic' property that is currently anticipated to
+    /// because the system prompt is the only `dynamic` property that is currently anticipated to
     /// exist.
-    /// All other members of the implementor must either be one-time-set (or `final'), or you must
-    /// make your own setters
+    /// All other members of the implementor must either be one-time-set (or `final`), or you must
+    /// make your own setters.
     fn sys_prompt(&self) -> &Option<String>;
 
+    /// Internal setter for `sys_prompt`, gated by `Filter` to prevent external callers from resetting it.
     fn private_set_sys_pr(&mut self, pr: String, _: private::Filter) -> ();
 
+    /// Returns the role string used for user messages (e.g. `"user"`).
     fn user_cue(&self) -> String;
 
+    /// Returns the role string used for assistant responses (e.g. `"assistant"`).
     fn response_cue(&self) -> String;
-    /// The LlmLike trait defines shared behaviour for all object that are LLMs or act like LLMs.
+    /// Shared behaviour for all LLM backends or Llm-like objects (e.g. Ollama, which is not an LLM but behaves similarly).
     /// Simple examples include LLMs like Claude or GPT, or tools like Ollama which are not LLMs
-    /// themselves but behave similarly enough that for our purposes, they may as well be the same
+    /// themselves but behave similarly enough that for our purposes, they may as well be the same.
     /// This method must be synchronous, meaning your implementation is expected to _only_ return
-    /// when the prompt has be 'sent' and the LLM or Llm-like object to which it is sent has
-    /// finished responding or an error has occurred
+    /// when the prompt has been 'sent' and the LLM or Llm-like object to which it is sent has
+    /// finished responding or an error has occurred.
     fn prompt(&mut self, prompt: String) -> LlmResult<String> {
         let user_cue = self.user_cue();
         let response_cue = self.response_cue();
@@ -103,7 +117,6 @@ pub trait LlmLike {
             ..Default::default()
         };
 
-        // query
         let resp = self.query(request_body)?;
         let content = resp.message.content.unwrap_or_default();
         self.history_mut().push(msg(
@@ -113,18 +126,17 @@ pub trait LlmLike {
             None,
         ));
         Ok(content)
-        // query
     }
     /// You define how history is maintained for your particular model. In some cases, history
     /// might not need to be maintained by this layer at all, so this method would be a stub.
     /// Otherwise, the implementation of this method gives you complete control over the
-    /// maintainance of history in your struct
+    /// maintenance of history in your struct.
     fn add_to_history(&mut self, msg_obj: general::Message) -> LlmResult<()> {
         self.history_mut().push(msg_obj);
 
         Ok(())
     }
-    /// This function would be used in order to manage/engineer the context and history
+    /// Concatenates messages from `from` to `to`, sends the concatenated text as a prompt, and replaces that range with the summary. Note: `from` must be greater than `to`.
     fn summarise(&mut self, from: usize, to: usize) -> LlmResult<()> {
         assert!(from > to);
 
@@ -145,6 +157,7 @@ pub trait LlmLike {
         Ok(())
     }
 
+    /// Sets the system prompt once; subsequent calls return `OpNotSupported`. Also prepends a system message to history.
     fn set_sys_prompt(&mut self, sys_prompt: String) -> LlmResult<()> {
         if self.sys_prompt().is_none() {
             self.private_set_sys_pr(sys_prompt, private::Filter::new());
@@ -166,32 +179,37 @@ pub trait LlmLike {
 }
 
 // can have non-volatile memory, using a VectorDB
-// From vectorDB_rs
+// From vectorDB_rs?
 pub trait Memory {}
 
 // AgentReady Models are ToolReady and have non-volatile Memory
 pub trait AgentReady: ToolReady + Memory {}
 
+/// Errors that can occur during LLM operations.
 #[derive(Error, Debug)]
 pub enum LlmError {
+    /// An unexpected format was encountered.
     #[error("Unexpected Format found!")]
     UnexpectedFormat,
+    /// The requested operation is not implemented yet.
     #[error("Operation Not Implemented!")]
     OpNotImplemented,
+    /// The operation is not supported by this implementor.
     #[error("Operation Not Supported by This Implementor, because {0}!")]
     OpNotSupported(String),
-
+    /// An async operation timed out.
     #[error("Async Operation Timed Out!")]
     TimedOut,
-    // FIXME: Placeholder
+    /// An unspecified or other error occurred.
     #[error("Other!")]
     Other,
+    /// An HTTP request failed.
     #[error("HTTP request failed: {0}")]
     Request(#[from] reqwest::Error),
 }
 
-// FIXME: Use HistConfig
-enum HistConfig {
+/// Controls how conversation history is maintained.
+pub(crate) enum HistConfig {
     /// Maintain all of the messages, upto a certain size. If size = 0, then never stop recording
     ConversationBuffer(i32),
     /// Maintain the `k` most recent messages, discard anything older

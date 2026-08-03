@@ -13,3 +13,4 @@ serde_with = { version = "3.21.0", features = [ "macros" ] }
 
 [features]
 log = []
+bench = []

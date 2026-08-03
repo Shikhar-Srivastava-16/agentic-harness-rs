@@ -11,18 +11,27 @@ use crate::tooling::ToolMap;
 use crate::tooling::ToolReady;
 use std::collections::HashMap;
 
+/// Ollama backend implementation of [`LlmLike`].
 pub struct Ollama {
-    // None system prompt is possible
+    /// System prompt, if set.
     sys_pr: Option<String>,
+    /// The model identifier.
     model: String,
+    /// Base URL for the Ollama REST API.
     rest_url: String,
+    /// Conversation history.
     hist: Vec<general::Message>,
+    /// How to manage conversation history.
     hist_config: HistConfig,
+    /// Request timeout in seconds.
     timeout: u64,
+    /// Registered tool implementations.
     pub tools: ToolMap,
+    /// Tool definitions sent to the model.
     pub registered_tools: Vec<ToolDef>,
 }
 
+/// Default config: local Ollama at `http://localhost:11434`, model `qwen3:8B`, 300s timeout.
 impl Default for Ollama {
     fn default() -> Self {
         Ollama {
@@ -38,8 +47,10 @@ impl Default for Ollama {
     }
 }
 
+/// Ollama-specific configuration.
 // FIXME: stub
 pub struct OllamaConfig {
+    /// The model name.
     pub name: String,
 }
 

@@ -33,5 +33,7 @@ pub fn init(config: AppConfig) {
 }
 
 pub fn get() -> &'static AppConfig {
-    GLOBAL_CONFIG.get().expect("Config not initialized. Call config::init() first.")
+    GLOBAL_CONFIG
+        .get()
+        .expect("Config not initialized. Call config::init() first.")
 }

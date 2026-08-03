@@ -4,31 +4,47 @@ use crate::general;
 use crate::msg;
 use serde::Serialize;
 
+/// A tool/function specification which can be sent to the LLM, so that it can request the harness
+/// for a call.
 #[derive(Serialize, Clone, Debug)]
 pub struct ToolDef {
     #[serde(rename = "type")]
+    /// Always `"function"`; retained as a string for forward compatibility.
     pub tool_type: String,
+    /// The function definition (name, description, JSON Schema parameters).
     pub function: FunctionDef,
 }
 
+/// The inner definition of a tool — name, description, and parameters.
 #[derive(Serialize, Clone, Debug)]
 pub struct FunctionDef {
+    /// The function name.
     pub name: String,
+    /// A description of what the function does.
     pub description: String,
+    /// JSON Schema for the function parameters.
     pub parameters: serde_json::Value,
 }
 
+/// Function pointer type for tool implementations — takes a `String` input and returns a `String` output.
 pub type ToolFn = dyn Fn(String) -> String;
+/// Map from tool name to its callable function.
 pub type ToolMap = std::collections::HashMap<String, Box<ToolFn>>;
 
+/// Invokes a tool function with the given input, returning its output or an error.
 pub fn run_tool(tool: &ToolFn, input: String) -> LlmResult<String> {
     Ok(tool(input))
 }
 
+/// Trait for LLMs that support tool/function calling. Extends `LlmLike` with tool registration and execution.
 pub trait ToolReady: LlmLike {
+    /// Returns the role string used for tool messages (e.g. `"tool"`).
     fn tool_cue(&self) -> String;
+    /// Immutable reference to the tool function map.
     fn tools(&self) -> &ToolMap;
+    /// Immutable reference to the list of tool declarations sent to the API.
     fn registered_tools(&self) -> &Vec<ToolDef>;
+    /// Registers a new tool with the LLM instance — adds both the `ToolDef` and the callable function.
     fn register_tool(
         &mut self,
         name: String,
@@ -37,6 +53,7 @@ pub trait ToolReady: LlmLike {
         func: Box<ToolFn>,
     ) -> LlmResult<()>;
 
+    /// Formats tool output as a message and queries the LLM again, returning the updated response.
     fn tool_respond(
         &mut self,
         tool_name: String,
@@ -67,6 +84,7 @@ pub trait ToolReady: LlmLike {
         Ok(resp)
     }
 
+    /// High-level prompt that auto-detects tool calls in the LLM response and executes them in a loop.
     fn prompt(&mut self, prompt: String) -> LlmResult<String> {
         let user_cue = self.user_cue();
 

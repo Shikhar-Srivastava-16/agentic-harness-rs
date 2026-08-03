@@ -24,59 +24,78 @@ use std::collections::HashMap;
 // ---------------------------------------------------------------------
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+/// Top-level request body for the OpenAI Chat Completions API.
 pub struct ChatCompletionRequest {
-    // --- required ---
+    /// The model identifier.
     pub model: String,
+    /// The conversation messages.
     pub messages: Vec<Message>,
 
     // --- sampling / generation control ---
+    /// Sampling temperature.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub temperature: Option<f32>,
+    /// Nucleus sampling probability threshold.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub top_p: Option<f32>,
+    /// Number of response candidates to generate.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub n: Option<u32>,
+    /// Maximum number of tokens in the completion.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_completion_tokens: Option<u32>,
-    /// Deprecated — kept for back-compat with older callers/servers.
-    /// Prefer `max_completion_tokens`.
+    /// Deprecated — kept for back-compat. Prefer `max_completion_tokens`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_tokens: Option<u32>,
+    /// Stop sequences.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stop: Option<StopSequence>,
+    /// Presence penalty for topic repetition.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub presence_penalty: Option<f32>,
+    /// Frequency penalty for token repetition.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub frequency_penalty: Option<f32>,
+    /// Adjust the likelihood of specified tokens.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub logit_bias: Option<HashMap<String, f32>>,
+    /// Fixed seed for deterministic outputs.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub seed: Option<i64>,
-    /// Reasoning-model-only (o-series etc.)
+    /// Reasoning-model-only (o-series etc.).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reasoning_effort: Option<ReasoningEffort>,
 
     // --- output shape control ---
+    /// Controls the output format (text, JSON object, or JSON Schema).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub response_format: Option<ResponseFormat>,
+    /// Output modalities (text, audio).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub modalities: Option<Vec<Modality>>,
+    /// Audio output configuration.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub audio: Option<AudioConfig>,
+    /// Structured prediction output configuration.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub prediction: Option<PredictionConfig>,
 
     // --- logprobs ---
+    /// Whether to return token log probabilities.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub logprobs: Option<bool>,
+    /// Number of top log probabilities to return (0-20).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub top_logprobs: Option<u8>, // 0-20
+    pub top_logprobs: Option<u8>,
 
     // --- tools ---
+    /// Tool/function definitions the model can call.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tools: Option<Vec<Tool>>,
+    /// Controls which tool the model uses (`auto`, `none`, `required`, or specific).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool_choice: Option<ToolChoice>,
+    /// Whether to allow parallel tool calls.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub parallel_tool_calls: Option<bool>,
 
@@ -88,18 +107,24 @@ pub struct ChatCompletionRequest {
     pub function_call: Option<FunctionCallChoice>,
 
     // --- streaming ---
+    /// Whether to stream the response.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stream: Option<bool>,
+    /// Streaming configuration options.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stream_options: Option<StreamOptions>,
 
     // --- infra / operational ---
+    /// OpenAI service tier.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub service_tier: Option<ServiceTier>,
+    /// Whether to store the completion for model distillation.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub store: Option<bool>,
+    /// Arbitrary metadata attached to the request.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<HashMap<String, String>>,
+    /// End-user identifier for abuse monitoring.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub user: Option<String>,
 }
@@ -111,6 +136,8 @@ pub struct ChatCompletionRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "role")]
 #[serde(rename_all = "snake_case")]
+/// A single message in a chat conversation. Tagged on `role` so each variant
+/// carries only the fields relevant to that role.
 pub enum Message {
     System {
         content: Content,
@@ -148,6 +175,7 @@ pub enum Content {
     Parts(Vec<ContentPart>),
 }
 
+/// A single part of a multimodal message (text, image, or audio).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 #[serde(rename_all = "snake_case")]
@@ -157,59 +185,75 @@ pub enum ContentPart {
     InputAudio { input_audio: InputAudio },
 }
 
+/// An image URL for multimodal input.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ImageUrl {
     pub url: String,
+    /// Level of detail for the image ("auto", "low", or "high").
     #[serde(skip_serializing_if = "Option::is_none")]
     pub detail: Option<String>, // "auto" | "low" | "high"
 }
 
+/// Audio input for multimodal messages.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InputAudio {
-    pub data: String,   // base64
-    pub format: String, // "wav" | "mp3"
+    /// Base64-encoded audio data.
+    pub data: String,
+    /// Audio format (e.g. `"wav"` or `"mp3"`).
+    pub format: String,
 }
 
 // ---------------------------------------------------------------------
 // Tools / function calling
 // ---------------------------------------------------------------------
 
+/// A tool definition the model can call.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Tool {
     Function { function: FunctionDef },
 }
 
+/// A function definition for use as a tool.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FunctionDef {
+    /// The function name.
     pub name: String,
+    /// Optional description of what the function does.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
-    /// Raw JSON Schema — left as serde_json::Value since schema shape
+    /// Raw JSON Schema — left as `serde_json::Value` since schema shape
     /// is arbitrary and you don't want to model JSON Schema itself in Rust.
     pub parameters: serde_json::Value,
+    /// Whether to enforce strict schema adherence.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub strict: Option<bool>,
 }
 
+/// A tool call request from the model.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolCall {
+    /// Unique identifier for this tool call.
     pub id: String,
+    /// The tool type (always `"function"`).
     #[serde(rename = "type")]
-    pub kind: String, // "function"
+    pub kind: String,
+    /// The function call details.
     pub function: FunctionCall,
 }
 
+/// The `function` object inside a tool call.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FunctionCall {
+    /// The function name.
     pub name: String,
     /// Arguments arrive as a JSON *string* per the OpenAI spec —
     /// caller is responsible for parsing it, don't assume it's valid JSON.
     pub arguments: String,
 }
 
-/// `tool_choice` can be the bare strings "auto"/"none"/"required",
-/// or an object forcing a specific named function.
+/// Controls which tool the model uses. Can be a mode string
+/// (`"auto"`, `"none"`, `"required"`) or a specific named function.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum ToolChoice {
@@ -220,6 +264,7 @@ pub enum ToolChoice {
     },
 }
 
+/// The mode for `tool_choice`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ToolChoiceMode {
@@ -228,8 +273,10 @@ pub enum ToolChoiceMode {
     Required,
 }
 
+/// A named function choice for `tool_choice`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NamedFunctionChoice {
+    /// The function name to call.
     pub name: String,
 }
 
@@ -245,6 +292,7 @@ pub enum FunctionCallChoice {
 // Response format / structured outputs
 // ---------------------------------------------------------------------
 
+/// Controls the output format for the model's response.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ResponseFormat {
@@ -253,12 +301,17 @@ pub enum ResponseFormat {
     JsonSchema { json_schema: JsonSchemaSpec },
 }
 
+/// JSON Schema specification for structured outputs.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JsonSchemaSpec {
+    /// The name of the schema.
     pub name: String,
+    /// Optional description of the schema.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
+    /// The JSON Schema object.
     pub schema: serde_json::Value,
+    /// Whether to enforce strict schema adherence.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub strict: Option<bool>,
 }
@@ -267,8 +320,10 @@ pub struct JsonSchemaSpec {
 // Streaming
 // ---------------------------------------------------------------------
 
+/// Configuration for streaming responses.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StreamOptions {
+    /// Whether to include token usage information in stream events.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub include_usage: Option<bool>,
 }
@@ -277,6 +332,7 @@ pub struct StreamOptions {
 // Audio / multimodal output
 // ---------------------------------------------------------------------
 
+/// Output modality for the model's response.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Modality {
@@ -284,16 +340,22 @@ pub enum Modality {
     Audio,
 }
 
+/// Audio output configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AudioConfig {
+    /// The voice to use for audio output.
     pub voice: String,
-    pub format: String, // "wav" | "mp3" | "opus" | ...
+    /// The audio format (e.g. `"wav"`, `"mp3"`, `"opus"`).
+    pub format: String,
 }
 
+/// Structured prediction output configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PredictionConfig {
+    /// The prediction type (e.g. `"content"`).
     #[serde(rename = "type")]
-    pub kind: String, // "content"
+    pub kind: String,
+    /// The content to predict.
     pub content: Content,
 }
 
@@ -301,6 +363,7 @@ pub struct PredictionConfig {
 // Small enums / helpers
 // ---------------------------------------------------------------------
 
+/// Stop sequence(s) that halt model generation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum StopSequence {
@@ -308,6 +371,7 @@ pub enum StopSequence {
     Many(Vec<String>), // max 4
 }
 
+/// OpenAI service tier for request routing.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ServiceTier {
@@ -317,6 +381,7 @@ pub enum ServiceTier {
     Priority,
 }
 
+/// Reasoning effort level for reasoning models (o-series).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ReasoningEffort {

@@ -16,36 +16,42 @@ use crate::tooling;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
-// ---------------------------------------------------------------------
-// Top-level request
-// ---------------------------------------------------------------------
-
+/// Top-level request body for the Ollama Chat API.
 #[skip_serializing_none]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OllamaChatRequest {
-    // --- required ---
+    /// The model name to pass to Ollama. This informs Ollama's API of the LLM to which it should forward requests.
     pub model: String,
+    /// The conversation messages, containing the chat history up to this point
     pub messages: Vec<OllamaChatMessage>,
 
-    // --- optional fields ---
+    /// Optional tool/function specification which the model can request from the harness. Tools need to be provided to each
+    /// query, and should only be omitted when the user is certain that a specific tool must never
+    /// be used
+    /// The default value is None at the harness level
     #[serde(default)]
     pub tools: Option<Vec<OllamaToolDefinition>>,
     /// `"json"` or a JSON Schema object.
     #[serde(default)]
     pub format: Option<String>,
+    /// Per-request model parameter overrides.
     #[serde(default)]
     pub options: Option<OllamaModelOptions>,
+/// Whether to stream the response.
     #[serde(default)]
     pub stream: Option<bool>,
-    /// Boolean-ish (`"true"` / `"false"`) or a thinking level
-    /// (`"high"`, `"medium"`, `"low"`, `"max"`).
+    /// Whether the model should 'think', and how much.
+    /// The harness-level default is None.
+    /// Boolean-ish (`"true"` / `"false"`) or a thinking level (`"high"`, `"medium"`, `"low"`, `"max"`).
     #[serde(default)]
     pub think: Option<String>,
     /// Keep-alive duration, e.g. `"5m"` or `"0"` to unload immediately.
     #[serde(default)]
     pub keep_alive: Option<String>,
+    /// Whether to return token log probabilities.
     #[serde(default)]
     pub logprobs: Option<bool>,
+    /// Number of top log probabilities to return.
     #[serde(default)]
     pub top_logprobs: Option<u32>,
 }
@@ -54,11 +60,13 @@ pub struct OllamaChatRequest {
 // Messages
 // ---------------------------------------------------------------------
 
+/// A single message in an Ollama conversation.
 #[skip_serializing_none]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OllamaChatMessage {
     /// One of `"system"`, `"user"`, `"assistant"`, `"tool"`.
     pub role: String,
+    /// The message content.
     pub content: String,
     /// Base64-encoded images for multimodal models.
     #[serde(default)]
@@ -72,35 +80,45 @@ pub struct OllamaChatMessage {
 // Tools / function calling
 // ---------------------------------------------------------------------
 
+/// A tool/function definition sent to Ollama.
 #[skip_serializing_none]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OllamaToolDefinition {
-    /// Always `"function"`.
+    /// Always `"function"`; retained as a string for forward compatibility.
     #[serde(rename = "type")]
     pub tool_type: String,
+    /// The function definition (name, description, JSON Schema parameters).
     pub function: OllamaFunctionDef,
 }
 
+/// The `function` object inside a tool declaration.
 #[skip_serializing_none]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OllamaFunctionDef {
+    /// The function name.
     pub name: String,
+    /// Optional description of what the function does.
     #[serde(default)]
     pub description: Option<String>,
     /// JSON Schema for the function parameters.
     pub parameters: serde_json::Value,
 }
 
+/// A tool call request from the model.
 #[skip_serializing_none]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OllamaToolCall {
+    /// The function call (name and arguments).
     pub function: OllamaFunctionCall,
 }
 
+/// The `function` object inside a tool call.
 #[skip_serializing_none]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OllamaFunctionCall {
+    /// The function name.
     pub name: String,
+    /// Optional description (unused by Ollama but carried for compatibility).
     #[serde(default)]
     pub description: Option<String>,
     /// JSON object of arguments to pass to the function.
@@ -111,23 +129,32 @@ pub struct OllamaFunctionCall {
 // Model options
 // ---------------------------------------------------------------------
 
+/// Per-request model parameter overrides.
 #[skip_serializing_none]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OllamaModelOptions {
+    /// Random seed for deterministic output.
     #[serde(default)]
     pub seed: Option<i64>,
+    /// Sampling temperature.
     #[serde(default)]
     pub temperature: Option<f32>,
+    /// Top-k sampling.
     #[serde(default)]
     pub top_k: Option<u32>,
+    /// Top-p sampling.
     #[serde(default)]
     pub top_p: Option<f32>,
+    /// Minimum probability threshold.
     #[serde(default)]
     pub min_p: Option<f32>,
+    /// Stop sequences.
     #[serde(default)]
     pub stop: Option<String>,
+    /// Context window size.
     #[serde(default)]
     pub num_ctx: Option<u32>,
+    /// Maximum number of tokens to predict.
     #[serde(default)]
     pub num_predict: Option<i32>,
 }
@@ -136,33 +163,50 @@ pub struct OllamaModelOptions {
 // Response
 // ---------------------------------------------------------------------
 
+/// A single chat response from the Ollama API.
 #[skip_serializing_none]
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct OllamaChatResponse {
+    /// The model that generated the response.
     pub model: String,
+    /// Timestamp of when the response was created.
     pub created_at: String,
+    /// The assistant's response message.
     pub message: OllamaResponseMessage,
+    /// Whether the response is complete.
     pub done: bool,
+    /// Reason the response finished (e.g. `"stop"`).
     pub done_reason: Option<String>,
+    /// Total time taken for the request.
     pub total_duration: Option<u64>,
+    /// Time taken to load the model.
     pub load_duration: Option<u64>,
+    /// Number of tokens evaluated in the prompt.
     pub prompt_eval_count: Option<u64>,
+    /// Time spent evaluating the prompt.
     pub prompt_eval_duration: Option<u64>,
+    /// Number of tokens generated in the response.
     pub eval_count: Option<u64>,
+    /// Time spent generating the response.
     pub eval_duration: Option<u64>,
 }
 
+/// A single message in an Ollama response.
 #[skip_serializing_none]
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct OllamaResponseMessage {
+    /// The role of the message author.
     pub role: String,
+    /// The message content, if any.
     #[serde(default)]
     pub content: Option<String>,
     /// Deliberate thinking trace when `think` is enabled.
     #[serde(default)]
     pub thinking: Option<String>,
+    /// Tool calls requested by the model, if any.
     #[serde(default)]
     pub tool_calls: Option<Vec<OllamaToolCall>>,
+    /// Base64-encoded images for multimodal models.
     #[serde(default)]
     pub images: Option<Vec<String>>,
 }
@@ -171,12 +215,19 @@ pub struct OllamaResponseMessage {
 // Conversions
 // ---------------------------------------------------------------------
 
+/// Converts a [`general::ChatRequest`] into an [`OllamaChatRequest`].
 impl From<general::ChatRequest> for OllamaChatRequest {
     fn from(g: general::ChatRequest) -> Self {
         OllamaChatRequest {
             model: g.model,
-            messages: g.messages.into_iter().map(OllamaChatMessage::from).collect(),
-            tools: g.tools.map(|ts| ts.into_iter().map(OllamaToolDefinition::from).collect()),
+            messages: g
+                .messages
+                .into_iter()
+                .map(OllamaChatMessage::from)
+                .collect(),
+            tools: g
+                .tools
+                .map(|ts| ts.into_iter().map(OllamaToolDefinition::from).collect()),
             format: None,
             options: Some(OllamaModelOptions {
                 seed: g.seed.map(|s| s as i64),
@@ -197,17 +248,21 @@ impl From<general::ChatRequest> for OllamaChatRequest {
     }
 }
 
+/// Converts a [`general::Message`] into an [`OllamaChatMessage`].
 impl From<general::Message> for OllamaChatMessage {
     fn from(m: general::Message) -> Self {
         OllamaChatMessage {
             role: m.role,
             content: m.content.unwrap_or_default(),
             images: None,
-            tool_calls: m.tool_calls.map(|tc| tc.into_iter().map(OllamaToolCall::from).collect()),
+            tool_calls: m
+                .tool_calls
+                .map(|tc| tc.into_iter().map(OllamaToolCall::from).collect()),
         }
     }
 }
 
+/// Converts a [`tooling::ToolDef`] into an [`OllamaToolDefinition`].
 impl From<tooling::ToolDef> for OllamaToolDefinition {
     fn from(t: tooling::ToolDef) -> Self {
         OllamaToolDefinition {
@@ -221,6 +276,7 @@ impl From<tooling::ToolDef> for OllamaToolDefinition {
     }
 }
 
+/// Converts a [`general::ToolCall`] into an [`OllamaToolCall`].
 impl From<general::ToolCall> for OllamaToolCall {
     fn from(tc: general::ToolCall) -> Self {
         OllamaToolCall {
@@ -233,6 +289,7 @@ impl From<general::ToolCall> for OllamaToolCall {
     }
 }
 
+/// Converts an [`OllamaChatResponse`] into a [`general::ChatResponse`].
 impl From<OllamaChatResponse> for general::ChatResponse {
     fn from(r: OllamaChatResponse) -> Self {
         general::ChatResponse {
@@ -241,7 +298,10 @@ impl From<OllamaChatResponse> for general::ChatResponse {
             message: general::Message {
                 role: r.message.role,
                 content: r.message.content,
-                tool_calls: r.message.tool_calls.map(|tc| tc.into_iter().map(general::ToolCall::from).collect()),
+                tool_calls: r
+                    .message
+                    .tool_calls
+                    .map(|tc| tc.into_iter().map(general::ToolCall::from).collect()),
                 tool_name: None,
             },
             done: r.done,
@@ -256,6 +316,7 @@ impl From<OllamaChatResponse> for general::ChatResponse {
     }
 }
 
+/// Converts an [`OllamaToolCall`] into a [`general::ToolCall`].
 impl From<OllamaToolCall> for general::ToolCall {
     fn from(tc: OllamaToolCall) -> Self {
         general::ToolCall {
