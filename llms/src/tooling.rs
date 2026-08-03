@@ -86,6 +86,12 @@ pub trait ToolReady: LlmLike {
 
     /// High-level prompt that auto-detects tool calls in the LLM response and executes them in a loop.
     fn prompt(&mut self, prompt: String) -> LlmResult<String> {
+        #[cfg(feature = "bench")]
+        let query_start = std::time::Instant::now();
+
+        #[cfg(feature = "bench")]
+        crate::bench::begin_prompt();
+
         let user_cue = self.user_cue();
 
         self.history_mut()
@@ -129,13 +135,28 @@ pub trait ToolReady: LlmLike {
                 #[cfg(feature = "log")]
                 dbg!("[ToolReady::prompt] tool call: {}({})", func_name, args);
 
+                #[cfg(feature = "bench")]
+                crate::bench::start_tool_cycle(func_name);
+
                 let tool_fn: &ToolFn = self
                     .tools()
                     .get(func_name)
                     .unwrap_or_else(|| panic!("Unknown tool: {}", func_name));
 
                 let args_str = args.to_string();
+
+                #[cfg(feature = "bench")]
+                let tool_time_start = std::time::Instant::now();
+
                 let tool_out = crate::tooling::run_tool(tool_fn, args_str)?;
+
+                #[cfg(feature = "bench")]
+                crate::bench::emit_tool_time(
+                    func_name,
+                    tool_time_start.elapsed(),
+                    self.model(),
+                );
+
                 #[cfg(feature = "log")]
                 dbg!("[ToolReady::prompt] tool output: {}", &tool_out);
 
@@ -144,6 +165,9 @@ pub trait ToolReady: LlmLike {
 
             content = resp.message.content.clone().unwrap_or_default();
         }
+
+        #[cfg(feature = "bench")]
+        crate::bench::emit_query(query_start.elapsed(), self.model());
 
         Ok(content)
     }

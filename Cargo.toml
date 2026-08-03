@@ -5,7 +5,7 @@ edition = "2024"
 
 [dependencies]
 dotenvy = "0.15"
-llms = { version = "0.1.0", path = "./llms", features = ["log", "bench"] }
+llms = { version = "0.1.0", path = "./llms", features = ["bench"] }
 reqwest = { version = "0.13.4", features = ["json"] }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.150"

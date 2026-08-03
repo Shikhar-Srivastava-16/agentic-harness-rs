@@ -5,6 +5,9 @@ compile_error!("feature \"log\" and feature \"bench\" cannot be enabled at the s
 use std::fmt::Debug;
 use thiserror::Error;
 
+#[cfg(feature = "bench")]
+pub mod bench;
+
 pub mod config;
 pub mod format;
 pub mod general;
@@ -103,6 +106,12 @@ pub trait LlmLike {
     /// when the prompt has been 'sent' and the LLM or Llm-like object to which it is sent has
     /// finished responding or an error has occurred.
     fn prompt(&mut self, prompt: String) -> LlmResult<String> {
+        #[cfg(feature = "bench")]
+        let query_start = std::time::Instant::now();
+
+        #[cfg(feature = "bench")]
+        crate::bench::begin_prompt();
+
         let user_cue = self.user_cue();
         let response_cue = self.response_cue();
 
@@ -125,6 +134,10 @@ pub trait LlmLike {
             resp.message.tool_calls,
             None,
         ));
+
+        #[cfg(feature = "bench")]
+        crate::bench::emit_query(query_start.elapsed(), self.model());
+
         Ok(content)
     }
     /// You define how history is maintained for your particular model. In some cases, history

@@ -75,6 +75,9 @@ impl LlmLike for Ollama {
         &mut self,
         request_body: format::ollama::OllamaChatRequest,
     ) -> LlmResult<format::ollama::OllamaChatResponse> {
+        #[cfg(feature = "bench")]
+        crate::bench::before_http_send(&self.model);
+
         let client = reqwest::blocking::Client::builder()
             .timeout(std::time::Duration::from_secs(self.timeout))
             .build()
