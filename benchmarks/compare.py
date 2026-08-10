@@ -14,9 +14,9 @@ import argparse
 import json
 import os
 import sys
-from typing import Any
 
 import matplotlib
+
 matplotlib.use("Agg")  # non-interactive backend
 import matplotlib.pyplot as plt
 import numpy as np
@@ -24,7 +24,9 @@ import pandas as pd
 
 
 DEFAULT_LLMS = os.environ.get("LLMS_BENCH_OUTPUT", "benchmarks/bench_llms.jsonl")
-DEFAULT_LANGCHAIN = os.environ.get("LANGCHAIN_BENCH_OUTPUT", "benchmarks/bench_langchain.jsonl")
+DEFAULT_LANGCHAIN = os.environ.get(
+    "LANGCHAIN_BENCH_OUTPUT", "benchmarks/bench_langchain.jsonl"
+)
 DEFAULT_CHART = os.environ.get("COMPARE_CHART", "benchmarks/comparison.png")
 
 
@@ -95,7 +97,9 @@ def print_table(df: pd.DataFrame) -> None:
 def _print_metric_table(kind: str, sub: pd.DataFrame, label: str = "") -> None:
     print(f"\n  {kind.upper()}{label}")
     print(f"  {'-' * 70}")
-    print(f"  {'Framework':<16} {'Count':>6} {'Mean':>10} {'P50':>10} {'P95':>10} {'P99':>10}  (ms)")
+    print(
+        f"  {'Framework':<16} {'Count':>6} {'Mean':>10} {'P50':>10} {'P95':>10} {'P99':>10}  (ms)"
+    )
     print(f"  {'-' * 70}")
     for fw in ["llms", "langchain"]:
         fw_sub = sub[sub["framework"] == fw]
@@ -103,17 +107,19 @@ def _print_metric_table(kind: str, sub: pd.DataFrame, label: str = "") -> None:
             print(f"  {fw:<16} {'—':>6} {'—':>10} {'—':>10} {'—':>10} {'—':>10}")
             continue
         stats = percentiles(fw_sub["duration_ms"])
-        print(f"  {fw:<16} {stats['count']:>6} {stats['mean']:>10.3f} {stats['p50']:>10.3f} "
-              f"{stats['p95']:>10.3f} {stats['p99']:>10.3f}")
+        print(
+            f"  {fw:<16} {stats['count']:>6} {stats['mean']:>10.3f} {stats['p50']:>10.3f} "
+            f"{stats['p95']:>10.3f} {stats['p99']:>10.3f}"
+        )
 
-    llms_sub = sub[sub["framework"] == "llms"]
-    lc_sub = sub[sub["framework"] == "langchain"]
-    if not llms_sub.empty and not lc_sub.empty:
-        llms_mean = llms_sub["duration_ms"].mean()
-        lc_mean = lc_sub["duration_ms"].mean()
-        if llms_mean > 0:
-            delta = ((lc_mean - llms_mean) / llms_mean) * 100
-            faster = "faster" if delta < 0 else "slower"
+    # llms_sub = sub[sub["framework"] == "llms"]
+    # lc_sub = sub[sub["framework"] == "langchain"]
+    # if not llms_sub.empty and not lc_sub.empty:
+    #     llms_mean = llms_sub["duration_ms"].mean()
+    #     lc_mean = lc_sub["duration_ms"].mean()
+    #     if llms_mean > 0:
+    #         delta = ((lc_mean - llms_mean) / llms_mean) * 100
+    #         faster = "faster" if delta < 0 else "slower"
 
 
 def generate_chart(df: pd.DataFrame, output: str) -> None:
@@ -125,8 +131,11 @@ def generate_chart(df: pd.DataFrame, output: str) -> None:
     titles = ["Query (total prompt)", "Send (prompt → HTTP)", "Tool Time", "Tool Cycle"]
 
     fig, axes = plt.subplots(2, 2, figsize=(14, 10))
-    fig.suptitle("llms crate vs Python LangChain — Benchmark Comparison",
-                 fontsize=14, fontweight="bold")
+    fig.suptitle(
+        "llms crate vs Python LangChain — Benchmark Comparison",
+        fontsize=14,
+        fontweight="bold",
+    )
 
     x = np.arange(2)
     width = 0.35
@@ -155,25 +164,43 @@ def generate_chart(df: pd.DataFrame, output: str) -> None:
                 errors.append(fw_sub["duration_ms"].std() if len(fw_sub) > 1 else 0)
             labels.append(fw)
 
-        bars = ax.bar(x, means, width * 2, yerr=errors,
-                      color=[colors[l] for l in labels],
-                      capsize=5, edgecolor="white", linewidth=0.5)
+        bars = ax.bar(
+            x,
+            means,
+            width * 2,
+            yerr=errors,
+            color=[colors[color] for color in labels],
+            capsize=5,
+            edgecolor="white",
+            linewidth=0.5,
+        )
         ax.set_xticks(x)
         ax.set_xticklabels(["llms", "LangChain"], fontsize=11)
         ax.set_ylabel("Duration (ms)", fontsize=10)
-        ax.set_title(f"{title}" + (f" — tool: {tools[0]}" if tools[0] != "(all)" else ""),
-                      fontsize=11, fontweight="bold")
+        ax.set_title(
+            f"{title}" + (f" — tool: {tools[0]}" if tools[0] != "(all)" else ""),
+            fontsize=11,
+            fontweight="bold",
+        )
 
         for bar, mean in zip(bars, means):
             if mean > 0:
-                ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height(),
-                        f"{mean:.1f}ms", ha="center", va="bottom", fontsize=9)
+                ax.text(
+                    bar.get_x() + bar.get_width() / 2,
+                    bar.get_height(),
+                    f"{mean:.1f}ms",
+                    ha="center",
+                    va="bottom",
+                    fontsize=9,
+                )
 
         ax.grid(axis="y", alpha=0.3)
         ax.set_axisbelow(True)
 
     # Collect all unique tool names for tool_time/tool_cycle subplots
-    all_tools = sorted(df[df["kind"].isin(["tool_time", "tool_cycle"])]["tool"].dropna().unique())
+    all_tools = sorted(
+        df[df["kind"].isin(["tool_time", "tool_cycle"])]["tool"].dropna().unique()
+    )
     if all_tools:
         legend_text = "Tools: " + ", ".join(all_tools)
         fig.text(0.5, 0.01, legend_text, ha="center", fontsize=9, style="italic")
@@ -186,11 +213,15 @@ def generate_chart(df: pd.DataFrame, output: str) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Compare llms vs LangChain benchmarks")
-    parser.add_argument("--llms", default=DEFAULT_LLMS, help="Path to llms JSONL output")
-    parser.add_argument("--langchain", default=DEFAULT_LANGCHAIN,
-                        help="Path to LangChain JSONL output")
-    parser.add_argument("--output", default=DEFAULT_CHART,
-                        help="Output PNG path for chart")
+    parser.add_argument(
+        "--llms", default=DEFAULT_LLMS, help="Path to llms JSONL output"
+    )
+    parser.add_argument(
+        "--langchain", default=DEFAULT_LANGCHAIN, help="Path to LangChain JSONL output"
+    )
+    parser.add_argument(
+        "--output", default=DEFAULT_CHART, help="Output PNG path for chart"
+    )
     args = parser.parse_args()
 
     df_llms = load_jsonl(args.llms, "llms")

@@ -151,11 +151,7 @@ pub trait ToolReady: LlmLike {
                 let tool_out = crate::tooling::run_tool(tool_fn, args_str)?;
 
                 #[cfg(feature = "bench")]
-                crate::bench::emit_tool_time(
-                    func_name,
-                    tool_time_start.elapsed(),
-                    self.model(),
-                );
+                crate::bench::emit_tool_time(func_name, tool_time_start.elapsed(), self.model());
 
                 #[cfg(feature = "log")]
                 dbg!("[ToolReady::prompt] tool output: {}", &tool_out);

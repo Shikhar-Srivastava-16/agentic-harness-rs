@@ -22,28 +22,6 @@
           opencode
         ];
 
-        faissForRust = pkgs.stdenv.mkDerivation rec {
-          pname = "faiss-c-api";
-          version = "1.14.3";
-          src = pkgs.fetchFromGitHub {
-            owner = "facebookresearch";
-            repo = "faiss";
-            rev = "v${version}";
-            hash = "sha256-lIyb+T3tvCqfIqUJ6KtubnLWYTlOt5Cz51mZmDW+AYo=";
-          };
-        
-          nativeBuildInputs = [ pkgs.cmake pkgs.gfortran ];
-          buildInputs = [ pkgs.blas pkgs.lapack ];
-          cmakeFlags = [
-            "-DFAISS_ENABLE_C_API=ON"
-            "-DBUILD_SHARED_LIBS=ON"
-            "-DFAISS_ENABLE_PYTHON=OFF"
-            "-DFAISS_ENABLE_GPU=OFF"
-            "-DBUILD_TESTING=OFF"
-            "-DCMAKE_BUILD_TYPE=Release"
-          ];
-        };
-
         # System libraries go here (e.g. openssl, pkg-config)
         MedievalDependencies = with pkgs; [
           clang-tools
@@ -86,15 +64,7 @@
         devShells.default = clangMkShell {
           buildInputs = with pkgs; [
             ollama
-            faissForRust
           ] ++ MedievalDependencies ++ DevDependencies ++ RustDependencies;
-
-
-          LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [
-            faissForRust
-            pkgs.blas
-            pkgs.lapack
-          ];
 
           RUST_SRC_PATH = pkgs.rustPlatform.rustLibSrc;
           LIBCLANG_PATH="${pkgs.llvmPackages.libclang.lib}/lib";

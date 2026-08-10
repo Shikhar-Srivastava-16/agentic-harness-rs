@@ -6,6 +6,8 @@ use llms::tooling::ToolReady;
 use serde_json::json;
 use std::io::{self, Write};
 
+const SYS: &str = "You are a helpful LLM assistant who can use tools if needed. Tools are always a more correct source of information, and they are not to be contributed";
+
 pub fn foobar_tool(_: String) -> String {
     "Jane Goodwin".into()
 }
@@ -15,13 +17,20 @@ pub fn hitchhiker_tool(_: String) -> String {
 }
 
 fn load_config() -> AppConfig {
-    dotenvy::dotenv().ok();
+    match dotenvy::dotenv() {
+        Ok(p) => {
+            dbg!("Loaded from {:?}", p);
+        }
+        Err(e) => {
+            dbg!("Failed to load from {:?}", e);
+        }
+    };
 
     let error_mode = std::env::var("ERROR_MODE").unwrap_or_else(|_| "strict".into());
 
     AppConfig {
-        system_prompt: std::env::var("SYSTEM_PROMPT").unwrap(),
-        model: std::env::var("MODEL").unwrap_or_else(|_| "minimaxai/minimax-m3".into()),
+        system_prompt: std::env::var("SYSTEM_PROMPT").unwrap_or_else(|_| SYS.into()),
+        model: std::env::var("MODEL").unwrap_or_else(|_| "gemma4:e4b".into()),
         url: std::env::var("URL").unwrap_or_else(|_| "http://localhost:11434".into()),
         api_key: std::env::var("API_KEY").ok().filter(|s| !s.is_empty()),
         backend: std::env::var("BACKEND").unwrap_or_else(|_| "ollama".into()),
