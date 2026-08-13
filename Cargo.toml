@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [workspace]
-members = [".", "llms", "benchmarks"]
+members = [".", "llms", "benchmarks/rust"]
 
 [dependencies]
 dotenvy = "0.15"

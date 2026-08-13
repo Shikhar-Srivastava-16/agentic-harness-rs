@@ -8,5 +8,5 @@ name = "bench-harness-llms"
 path = "harness_llms.rs"
 
 [dependencies]
-llms = { path = "../llms", features = ["bench"] }
+llms = { path = "../../llms", features = ["bench"] }
 serde_json = "1.0"

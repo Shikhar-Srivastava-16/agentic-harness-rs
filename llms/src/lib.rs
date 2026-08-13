@@ -10,7 +10,7 @@ pub mod general;
 pub mod ollama;
 pub mod tooling;
 
-use tooling::ToolReady;
+pub use tooling::ToolReady;
 
 pub type LlmResult<T> = std::result::Result<T, LlmError>;
 

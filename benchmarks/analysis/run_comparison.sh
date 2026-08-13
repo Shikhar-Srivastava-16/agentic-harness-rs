@@ -7,12 +7,13 @@
 #   1. Ollama server running (ollama serve)
 #   2. Model pulled (e.g. ollama pull qwen3:8b)
 #   3. uv installed (https://docs.astral.sh/uv/)
-#   4. .env file created from .env.example (cp .env.example .env)
+#  4. .env file created from this directory's .env.example
+#      (cp .env.example .env) — required when run from benchmarks/.
 #
 # Usage:
-#   ./benchmarks/run_comparison.sh [all|rust|python|compare]
+#   ./benchmarks/analysis/run_comparison.sh [all|rust|python|compare]
 #
-# All settings come from .env (located at the repo root).  Individual
+# All settings come from the .env file next to this script.  Individual
 # variables can also be overridden via the shell environment.
 #
 
@@ -24,10 +25,10 @@ cd "$ROOT_DIR"
 
 # --- Load .env (if present) --------------------------------------------------
 
-if [ -f "$ROOT_DIR/.env" ]; then
+if [ -f "$SCRIPT_DIR/.env" ]; then
     set -a
     # shellcheck disable=SC1091
-    source "$ROOT_DIR/.env"
+    source "$SCRIPT_DIR/.env"
     set +a
 fi
 
@@ -36,9 +37,9 @@ fi
 ITERATIONS="${BENCH_ITERATIONS:-10}"
 MODEL="${BENCH_MODEL:-gemma4:e4b}"
 OLLAMA_URL="${OLLAMA_URL:-http://localhost:11434}"
-LLMS_OUTPUT="${LLMS_BENCH_OUTPUT:-$SCRIPT_DIR/bench_llms.jsonl}"
-LANGCHAIN_OUTPUT="${LANGCHAIN_BENCH_OUTPUT:-$SCRIPT_DIR/bench_langchain.jsonl}"
-CHART_OUTPUT="${COMPARE_CHART:-$SCRIPT_DIR/comparison.png}"
+LLMS_OUTPUT="${LLMS_BENCH_OUTPUT:-$ROOT_DIR/bench_llms.jsonl}"
+LANGCHAIN_OUTPUT="${LANGCHAIN_BENCH_OUTPUT:-$ROOT_DIR/bench_langchain.jsonl}"
+CHART_OUTPUT="${COMPARE_CHART:-$ROOT_DIR/comparison.png}"
 
 # --- Helpers -----------------------------------------------------------------
 
@@ -74,7 +75,7 @@ run_rust() {
         BENCH_ITERATIONS="$ITERATIONS" \
         BENCH_MODEL="$MODEL" \
         OLLAMA_URL="$OLLAMA_URL" \
-        cargo run --manifest-path "$SCRIPT_DIR/Cargo.toml" --release 2>&1 || {
+        cargo run --manifest-path "$SCRIPT_DIR/../rust/Cargo.toml" --release 2>&1 || {
         echo "ERROR: Rust harness failed."
         exit 1
     }
@@ -89,8 +90,8 @@ run_python() {
         BENCH_MODEL="$MODEL" \
         OLLAMA_URL="$OLLAMA_URL" \
         LANGCHAIN_BENCH_OUTPUT="$LANGCHAIN_OUTPUT" \
-        uv run --project "$SCRIPT_DIR" \
-        python "$SCRIPT_DIR/harness_langchain.py" 2>&1 || {
+        uv run --project "$SCRIPT_DIR/../python" \
+        python "$SCRIPT_DIR/../python/harness_langchain.py" 2>&1 || {
         echo "ERROR: Python harness failed."
         exit 1
     }
@@ -102,17 +103,17 @@ run_compare() {
 
     if [ ! -f "$LLMS_OUTPUT" ]; then
         echo "ERROR: Rust harness output not found at $LLMS_OUTPUT"
-        echo "       Run './benchmarks/run_comparison.sh rust' first."
+        echo "       Run './benchmarks/analysis/run_comparison.sh rust' first."
         exit 1
     fi
     if [ ! -f "$LANGCHAIN_OUTPUT" ]; then
         echo "ERROR: Python harness output not found at $LANGCHAIN_OUTPUT"
-        echo "       Run './benchmarks/run_comparison.sh python' first."
+        echo "       Run './benchmarks/analysis/run_comparison.sh python' first."
         exit 1
     fi
 
     echo "=== Generating comparison report ==="
-    uv run --project "$SCRIPT_DIR" \
+    uv run --project "$SCRIPT_DIR/../python" \
         python "$SCRIPT_DIR/compare.py" \
         --llms "$LLMS_OUTPUT" \
         --langchain "$LANGCHAIN_OUTPUT" \
