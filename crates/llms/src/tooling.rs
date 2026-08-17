@@ -86,10 +86,10 @@ pub trait ToolReady: LlmLike {
 
     /// High-level prompt that auto-detects tool calls in the LLM response and executes them in a loop.
     fn prompt(&mut self, prompt: String) -> LlmResult<String> {
-        #[cfg(feature = "bench")]
+        #[cfg(any(feature = "bench", feature = "bench-threadsafe"))]
         let query_start = std::time::Instant::now();
 
-        #[cfg(feature = "bench")]
+        #[cfg(any(feature = "bench", feature = "bench-threadsafe"))]
         crate::bench::begin_prompt();
 
         let user_cue = self.user_cue();
@@ -132,10 +132,10 @@ pub trait ToolReady: LlmLike {
             for tc in &tool_calls {
                 let func_name = &tc.function.name;
                 let args = &tc.function.arguments;
-                #[cfg(feature = "log")]
+                #[cfg(any(feature = "tinylog", feature = "log"))]
                 dbg!("[ToolReady::prompt] tool call: {}({})", func_name, args);
 
-                #[cfg(feature = "bench")]
+                #[cfg(any(feature = "bench", feature = "bench-threadsafe"))]
                 crate::bench::start_tool_cycle(func_name);
 
                 let tool_fn: &ToolFn = self
@@ -145,12 +145,12 @@ pub trait ToolReady: LlmLike {
 
                 let args_str = args.to_string();
 
-                #[cfg(feature = "bench")]
+                #[cfg(any(feature = "bench", feature = "bench-threadsafe"))]
                 let tool_time_start = std::time::Instant::now();
 
                 let tool_out = crate::tooling::run_tool(tool_fn, args_str)?;
 
-                #[cfg(feature = "bench")]
+                #[cfg(any(feature = "bench", feature = "bench-threadsafe"))]
                 crate::bench::emit_tool_time(func_name, tool_time_start.elapsed(), self.model());
 
                 #[cfg(feature = "log")]
@@ -162,7 +162,7 @@ pub trait ToolReady: LlmLike {
             content = resp.message.content.clone().unwrap_or_default();
         }
 
-        #[cfg(feature = "bench")]
+        #[cfg(any(feature = "bench", feature = "bench-threadsafe"))]
         crate::bench::emit_query(query_start.elapsed(), self.model());
 
         Ok(content)

@@ -1,8 +1,8 @@
-use llms::LlmError;
-use llms::LlmLike;
 use llms::config::{self, AppConfig, ErrorMode};
 use llms::ollama::Ollama;
 use llms::tooling::ToolReady;
+use llms::LlmError;
+use llms::LlmLike;
 use serde_json::json;
 use std::io::{self, Write};
 
@@ -54,6 +54,7 @@ fn main() {
             Ok(ans) => println!("{}", ans),
             Err(e) => eprintln!("Error: {}", e),
         }
+        llms::bench::finalize();
         return;
     }
 
@@ -75,6 +76,7 @@ fn main() {
             Err(e) => eprintln!("Error: {}", e),
         }
     }
+    llms::bench::finalize();
 }
 
 fn init_backend(cfg: &AppConfig) -> Result<Ollama, LlmError> {

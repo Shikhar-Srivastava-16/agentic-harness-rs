@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 reqwest = { version = "0.13.4", features = ["blocking", "json"] }
+rusqlite = { version = "0.32", features = ["bundled"], optional = true }
 serde = { version = "1.0.228", features = ["derive"] }
 thiserror = "2.0.18"
 tokio = { version = "1.52.3", features = ["full"] }
@@ -13,4 +14,6 @@ serde_with = { version = "3.21.0", features = [ "macros" ] }
 
 [features]
 log = []
-bench = []
+tinylog = []
+bench = ["dep:rusqlite"]
+bench-threadsafe = ["dep:rusqlite"]

@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 use thiserror::Error;
 
-#[cfg(feature = "bench")]
+#[cfg(any(feature = "bench", feature = "bench-threadsafe"))]
 pub mod bench;
 
 pub mod config;
@@ -102,10 +102,10 @@ pub trait LlmLike {
     /// when the prompt has been 'sent' and the LLM or Llm-like object to which it is sent has
     /// finished responding or an error has occurred.
     fn prompt(&mut self, prompt: String) -> LlmResult<String> {
-        #[cfg(feature = "bench")]
+        #[cfg(any(feature = "bench", feature = "bench-threadsafe"))]
         let query_start = std::time::Instant::now();
 
-        #[cfg(feature = "bench")]
+        #[cfg(any(feature = "bench", feature = "bench-threadsafe"))]
         crate::bench::begin_prompt();
 
         let user_cue = self.user_cue();
@@ -131,7 +131,7 @@ pub trait LlmLike {
             None,
         ));
 
-        #[cfg(feature = "bench")]
+        #[cfg(any(feature = "bench", feature = "bench-threadsafe"))]
         crate::bench::emit_query(query_start.elapsed(), self.model());
 
         Ok(content)

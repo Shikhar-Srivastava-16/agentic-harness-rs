@@ -66,7 +66,7 @@ require_uv() {
     check_cmd uv "Install: curl -LsSf https://astral.sh/uv/install.sh | sh"
 }
 
-# --- Step functions ----------------------------------------------------------
+# --- Run functions: comparison_engine ----------------------------------------------------------
 
 run_rust() {
     require_ollama

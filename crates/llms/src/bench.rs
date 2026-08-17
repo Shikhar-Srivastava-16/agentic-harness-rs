@@ -1,25 +1,41 @@
 //! Built-in benchmarking instrumentation for the `llms` crate.
 //!
-//! Enabled via the `bench` feature. All timers use `std::time::Instant`
-//! and results are written as JSONL to a configurable path.
+//! Enabled via one of two features:
+//! - `bench`: writes each record immediately as a JSON line to a file whose
+//!   path is read from the `LLMS_BENCH_OUTPUT` environment variable at first
+//!   use (default `bench_output.jsonl`).
+//! - `bench-threadsafe`: does not write JSONL; records are only buffered in
+//!   memory.
 //!
-//! Set the output file at runtime via the `LLMS_BENCH_OUTPUT` environment
-//! variable (default: `bench_output.jsonl`).
+//! In both modes every record is also buffered in memory and flushed to a
+//! SQLite database when [`finalize`] is called — i.e. once, after the entire
+//! agent/harness prompting process has ended. The database path is a hardcoded
+//! compile-time constant ([`DB_PATH`]); there is no runtime configuration.
 //!
-//! Each line of the output file is a JSON object with fields:
+//! All timers use `std::time::Instant`. Each record has the fields
 //! `ts` (unix millis), `kind` (one of `query`, `send`, `tool_time`,
-//! `tool_cycle`), `duration_ms`, `tool` (optional, for tool events),
-//! `model`, and `framework`.
+//! `tool_cycle`), `duration_ms`, `tool` (optional, for tool events), `model`,
+//! and `framework`.
 
 use std::cell::RefCell;
-use std::io::Write;
-use std::sync::{Mutex, OnceLock};
+use std::sync::Mutex;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
+use rusqlite::{params, Connection};
 use serde::Serialize;
+
+#[cfg(feature = "bench")]
+use std::io::Write;
+#[cfg(feature = "bench")]
+use std::sync::OnceLock;
 
 const FRAMEWORK: &str = "llms";
 
+/// Hardcoded path of the SQLite database written by [`finalize`]. Decided at
+/// compile time; change it here and recompile to relocate the database.
+const DB_PATH: &str = "bench_output.sqlite";
+
+#[cfg(feature = "bench")]
 fn output_path() -> String {
     std::env::var("LLMS_BENCH_OUTPUT").unwrap_or_else(|_| "bench_output.jsonl".to_string())
 }
@@ -54,7 +70,11 @@ thread_local! {
     static CTX: RefCell<BenchContext> = RefCell::new(BenchContext::default());
 }
 
+#[cfg(feature = "bench")]
 static FILE: OnceLock<Mutex<std::fs::File>> = OnceLock::new();
+
+/// Thread-safe buffer of records awaiting the end-of-process [`finalize`] DB flush.
+static RECORDS: Mutex<Vec<BenchRecord>> = Mutex::new(Vec::new());
 
 fn now_ms() -> u128 {
     SystemTime::now()
@@ -67,6 +87,7 @@ fn duration_ms(d: Duration) -> f64 {
     d.as_nanos() as f64 / 1_000_000.0
 }
 
+#[cfg(feature = "bench")]
 fn get_file() -> &'static Mutex<std::fs::File> {
     FILE.get_or_init(|| {
         let path = output_path();
@@ -89,6 +110,15 @@ fn get_file() -> &'static Mutex<std::fs::File> {
     })
 }
 
+#[cfg(feature = "bench")]
+fn write_jsonl(record: &BenchRecord) {
+    let json = serde_json::to_string(record).unwrap_or_else(|_| "{}".to_string());
+    let mut file = get_file()
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    let _ = writeln!(file, "{}", json);
+}
+
 fn emit_record(kind: &'static str, duration: Duration, tool: Option<String>, model: &str) {
     let record = BenchRecord {
         ts: now_ms(),
@@ -99,11 +129,13 @@ fn emit_record(kind: &'static str, duration: Duration, tool: Option<String>, mod
         framework: FRAMEWORK,
     };
 
-    let json = serde_json::to_string(&record).unwrap_or_else(|_| "{}".to_string());
-    let mut file = get_file()
+    #[cfg(feature = "bench")]
+    write_jsonl(&record);
+
+    RECORDS
         .lock()
-        .unwrap_or_else(|e| e.into_inner());
-    let _ = writeln!(file, "{}", json);
+        .unwrap_or_else(|e| e.into_inner())
+        .push(record);
 }
 
 /// Called at the entry of `prompt()`. Records the start instant used for
@@ -166,12 +198,104 @@ pub fn emit_tool_time(tool_name: &str, duration: Duration, model: &str) {
     emit_record("tool_time", duration, Some(tool_name.to_string()), model);
 }
 
+/// Flushes all buffered records to the SQLite database at [`DB_PATH`].
+///
+/// Call this exactly once, after the entire agent/harness prompting process
+/// has ended. It behaves identically under the `bench` and `bench-threadsafe`
+/// features: buffered records are drained and written inside a single
+/// transaction. Database errors are reported on stderr and never panic.
+pub fn finalize() {
+    let records = std::mem::take(&mut *RECORDS.lock().unwrap_or_else(|e| e.into_inner()));
+
+    if records.is_empty() {
+        return;
+    }
+
+    let mut conn = match Connection::open(DB_PATH) {
+        Ok(conn) => conn,
+        Err(e) => {
+            eprintln!("bench: failed to open database at {}: {}", DB_PATH, e);
+            return;
+        }
+    };
+
+    if let Err(e) = conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS benchmark_records (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ts INTEGER NOT NULL,
+            kind TEXT NOT NULL,
+            duration_ms REAL NOT NULL,
+            tool TEXT,
+            model TEXT NOT NULL,
+            framework TEXT NOT NULL
+        );",
+    ) {
+        eprintln!("bench: failed to create benchmark_records table: {}", e);
+        return;
+    }
+
+    let tx = match conn.transaction() {
+        Ok(tx) => tx,
+        Err(e) => {
+            eprintln!("bench: failed to start transaction: {}", e);
+            return;
+        }
+    };
+
+    for record in &records {
+        let result = tx.execute(
+            "INSERT INTO benchmark_records (ts, kind, duration_ms, tool, model, framework)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![
+                record.ts as i64,
+                record.kind,
+                record.duration_ms,
+                record.tool,
+                record.model,
+                record.framework
+            ],
+        );
+        if let Err(e) = result {
+            eprintln!("bench: failed to insert record: {}", e);
+            break;
+        }
+    }
+
+    if let Err(e) = tx.commit() {
+        eprintln!("bench: failed to commit benchmark records: {}", e);
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
 #[cfg(test)]
-mod tests {
+fn db_rows() -> Vec<(i64, String, f64, Option<String>, String, String)> {
+    let conn = Connection::open(DB_PATH).expect("failed to open DB");
+    let mut stmt = conn
+        .prepare(
+            "SELECT ts, kind, duration_ms, tool, model, framework
+             FROM benchmark_records ORDER BY id",
+        )
+        .expect("failed to prepare select");
+    let rows = stmt
+        .query_map([], |row| {
+            Ok((
+                row.get(0)?,
+                row.get(1)?,
+                row.get(2)?,
+                row.get(3)?,
+                row.get(4)?,
+                row.get(5)?,
+            ))
+        })
+        .expect("failed to query");
+    rows.map(|r| r.unwrap()).collect()
+}
+
+#[cfg(all(test, feature = "bench"))]
+mod bench_tests {
     use super::*;
 
     /// Simulates the full lifecycle of `ToolReady::prompt` with a single tool
@@ -179,6 +303,8 @@ mod tests {
     /// order with the correct tool attribution.
     #[test]
     fn test_bench_emits_all_metrics() {
+        let _ = std::fs::remove_file(DB_PATH);
+
         // 1. Prompt starts → begin_prompt sets thread-local prompt_start
         begin_prompt();
 
@@ -239,5 +365,74 @@ mod tests {
         assert_eq!(records[3]["kind"], "query");
         assert!(records[3]["tool"].is_null());
         assert_eq!(records[3]["duration_ms"].as_f64().unwrap(), 15.0);
+
+        // finalize() flushes the same records to the SQLite database
+        finalize();
+        let rows = db_rows();
+        assert_eq!(rows.len(), 4, "expected 4 records in the database");
+        assert_eq!(rows[0].1, "send");
+        assert_eq!(rows[1].1, "tool_time");
+        assert_eq!(rows[1].3.as_deref(), Some("test_tool"));
+        assert_eq!(rows[2].1, "tool_cycle");
+        assert_eq!(rows[3].1, "query");
+
+        let _ = std::fs::remove_file(DB_PATH);
+    }
+}
+
+#[cfg(all(test, feature = "bench-threadsafe"))]
+mod threadsafe_tests {
+    use super::*;
+
+    #[test]
+    fn test_bench_threadsafe_buffers_then_flushes_db() {
+        let _ = std::fs::remove_file(DB_PATH);
+
+        // 1. Prompt starts → begin_prompt sets thread-local prompt_start
+        begin_prompt();
+
+        // 2. HTTP request fires (initial query) → before_http_send consumes
+        //    prompt_start and emits "send"
+        std::thread::sleep(Duration::from_millis(5));
+        before_http_send("test-model");
+
+        // 3. Tool call received → start_tool_cycle sets cycle start + name
+        start_tool_cycle("test_tool");
+
+        // 4. Tool executes → emit_tool_time
+        emit_tool_time("test_tool", Duration::from_millis(3), "test-model");
+
+        // 5. tool_respond sends HTTP → before_http_send consumes
+        //    tool_cycle_start and emits "tool_cycle"
+        std::thread::sleep(Duration::from_millis(7));
+        before_http_send("test-model");
+
+        // 6. prompt() returns → emit_query emits "query" and clears state
+        emit_query(Duration::from_millis(15), "test-model");
+
+        // Records are only buffered in memory before finalize()
+        assert_eq!(RECORDS.lock().unwrap().len(), 4);
+        assert!(
+            !std::path::Path::new(DB_PATH).exists(),
+            "DB should not exist before finalize()"
+        );
+
+        // finalize() drains the buffer into the SQLite database
+        finalize();
+        let rows = db_rows();
+        assert_eq!(rows.len(), 4, "expected 4 records in the database");
+        assert_eq!(rows[0].1, "send");
+        assert!(rows[0].3.is_none());
+        assert_eq!(rows[1].1, "tool_time");
+        assert_eq!(rows[1].3.as_deref(), Some("test_tool"));
+        assert_eq!(rows[1].2, 3.0);
+        assert_eq!(rows[2].1, "tool_cycle");
+        assert_eq!(rows[2].3.as_deref(), Some("test_tool"));
+        assert_eq!(rows[3].1, "query");
+        for row in &rows {
+            assert_eq!(row.5, "llms");
+        }
+
+        let _ = std::fs::remove_file(DB_PATH);
     }
 }

@@ -86,7 +86,7 @@ impl LlmLike for Minimax {
     /// Sends the request to the NVIDIA `/v1/chat/completions` endpoint with Minimax-specific
     /// overrides (`max_tokens=8192`, `temperature=1.0`, `top_p=0.95`).
     fn query(&mut self, request_body: general::ChatRequest) -> LlmResult<general::ChatResponse> {
-        #[cfg(feature = "bench")]
+        #[cfg(any(feature = "bench", feature = "bench-threadsafe"))]
         crate::bench::before_http_send(&self.model);
 
         let client = reqwest::blocking::Client::builder()

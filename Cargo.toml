@@ -4,11 +4,17 @@ version = "0.1.0"
 edition = "2024"
 
 [workspace]
-members = [".", "llms", "benchmarks/rust"]
+members = [
+    ".",
+    "crates/llms",
+    "crates/benchmarks",
+    "crates/benchmarks/tests/comparison_tests/simple/simple_1/harness_rs",
+    "/home/shikhars/Documents/shikhar/Documents/yotta/ollama-client/Cargo.toml",
+]
 
 [dependencies]
 dotenvy = "0.15"
-llms = { version = "0.1.0", path = "./llms", features = ["bench"] }
+llms = { version = "0.1.0", path = "./crates/llms", features = ["bench"] }
 reqwest = { version = "0.13.4", features = ["json"] }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.150"

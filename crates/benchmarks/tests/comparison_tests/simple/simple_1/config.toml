@@ -1,0 +1,22 @@
+model = "gemma4:e4b"
+url = "http://localhost:11434"
+iterations = 10
+system_prompt = "You are a helpful assistant that uses tools when needed."
+error_mode = "strict"
+backend = "ollama"
+api_key = ""
+query = ""
+bench_output = "bench_output.jsonl"
+langchain_output = "bench_agentexecutor.jsonl"
+prompts = [
+    "Who is Jane Goodwin?",
+    "What is the answer to life, the universe, and everything?",
+    "Combine search_tool and add_tool to find Jane's lucky number.",
+    "Use search_tool to find information about Jane Goodwin.",
+    "Use add_tool to compute 42 + 0.",
+    "What did search_tool tell you about Jane Goodwin?",
+    "Calculate 42 using the add_tool.",
+    "Tell me a story about Jane Goodwin found via search_tool.",
+    "Using add_tool, what is 40 + 2?",
+    "Query search_tool for Jane Goodwin's details.",
+]

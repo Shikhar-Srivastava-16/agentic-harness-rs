@@ -20,6 +20,7 @@
           gh
           drawio
           opencode
+          herdr
         ];
 
         # System libraries go here (e.g. openssl, pkg-config)
