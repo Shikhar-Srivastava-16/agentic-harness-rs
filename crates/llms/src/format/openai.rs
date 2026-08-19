@@ -16,6 +16,8 @@
 //!     are included but marked, since a framework may still need to detect
 //!     and warn on them rather than silently drop support.
 
+use crate::general;
+use crate::tooling::ToolDef;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -23,7 +25,7 @@ use std::collections::HashMap;
 // Top-level request
 // ---------------------------------------------------------------------
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
 /// Top-level request body for the OpenAI Chat Completions API.
 pub struct ChatCompletionRequest {
     /// The model identifier.
@@ -391,6 +393,208 @@ pub enum ReasoningEffort {
 }
 
 // ---------------------------------------------------------------------
+// Response
+// ---------------------------------------------------------------------
+
+/// Top-level response body for the OpenAI Chat Completions API.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChatCompletionResponse {
+    /// Unique identifier of the completion.
+    pub id: String,
+    /// Object type, always `"chat.completion"`.
+    #[serde(default)]
+    pub object: Option<String>,
+    /// Unix timestamp (seconds) of when the response was created.
+    pub created: u64,
+    /// The model that generated the response.
+    pub model: String,
+    /// The candidate completions; the first is normally taken.
+    pub choices: Vec<Choice>,
+    /// Token usage statistics for the request.
+    #[serde(default)]
+    pub usage: Option<Usage>,
+}
+
+/// A single candidate completion.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Choice {
+    /// Position of this choice among the candidates.
+    pub index: u32,
+    /// The assistant's response message.
+    pub message: ResponseMessage,
+    /// Why generation stopped (`"stop"`, `"length"`, `"tool_calls"`, ...).
+    #[serde(default)]
+    pub finish_reason: Option<String>,
+}
+
+/// A message inside a chat completion response.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResponseMessage {
+    /// The role of the author, always `"assistant"`.
+    pub role: String,
+    /// The message content; `None` when the response only carries tool calls.
+    #[serde(default)]
+    pub content: Option<String>,
+    /// Tool calls requested by the model, if any.
+    #[serde(default)]
+    pub tool_calls: Option<Vec<ToolCall>>,
+}
+
+/// Token usage for a chat completion request.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Usage {
+    /// Number of tokens in the prompt.
+    pub prompt_tokens: u32,
+    /// Number of tokens in the completion.
+    pub completion_tokens: u32,
+    /// Total token count.
+    pub total_tokens: u32,
+}
+
+// ---------------------------------------------------------------------
+// Conversions
+// ---------------------------------------------------------------------
+
+/// Converts a [`general::ChatRequest`] into a [`ChatCompletionRequest`].
+impl From<general::ChatRequest> for ChatCompletionRequest {
+    fn from(g: general::ChatRequest) -> Self {
+        ChatCompletionRequest {
+            model: g.model,
+            messages: g.messages.into_iter().map(Message::from).collect(),
+            temperature: g.temperature,
+            top_p: g.top_p,
+            seed: g.seed.map(|s| s as i64),
+            max_tokens: g.max_prediction_tokens.map(|v| v as u32),
+            stop: g.stop.map(StopSequence::One),
+            stream: g.stream,
+            tools: g.tools.map(|ts| ts.into_iter().map(Tool::from).collect()),
+            ..Default::default()
+        }
+    }
+}
+
+/// Converts a [`general::Message`] into a [`Message`].
+impl From<general::Message> for Message {
+    fn from(m: general::Message) -> Self {
+        match m.role.as_str() {
+            "system" => Message::System {
+                content: Content::Text(m.content.unwrap_or_default()),
+                name: None,
+            },
+            "user" => Message::User {
+                content: Content::Text(m.content.unwrap_or_default()),
+                name: None,
+            },
+            "assistant" => Message::Assistant {
+                content: m.content.map(Content::Text),
+                name: None,
+                tool_calls: m
+                    .tool_calls
+                    .map(|tcs| tcs.into_iter().map(ToolCall::from).collect()),
+                refusal: None,
+            },
+            "tool" => Message::Tool {
+                content: Content::Text(m.content.unwrap_or_default()),
+                tool_call_id: m.tool_name.unwrap_or_default(),
+            },
+            _ => Message::User {
+                content: Content::Text(m.content.unwrap_or_default()),
+                name: None,
+            },
+        }
+    }
+}
+
+/// Converts a [`tooling::ToolDef`] into a [`Tool`].
+impl From<ToolDef> for Tool {
+    fn from(t: ToolDef) -> Self {
+        Tool::Function {
+            function: FunctionDef {
+                name: t.function.name,
+                description: Some(t.function.description),
+                parameters: t.function.parameters,
+                strict: None,
+            },
+        }
+    }
+}
+
+/// Converts a [`general::ToolCall`] into a [`ToolCall`].
+impl From<general::ToolCall> for ToolCall {
+    fn from(tc: general::ToolCall) -> Self {
+        ToolCall {
+            id: tc.function.name.clone(),
+            kind: "function".to_string(),
+            function: FunctionCall {
+                name: tc.function.name,
+                arguments: tc.function.arguments.to_string(),
+            },
+        }
+    }
+}
+
+/// Converts a [`ChatCompletionResponse`] into a [`general::ChatResponse`].
+impl From<ChatCompletionResponse> for general::ChatResponse {
+    fn from(r: ChatCompletionResponse) -> Self {
+        let choice = r.choices.into_iter().next();
+        let msg = choice.as_ref().map(|c| &c.message);
+
+        let tool_calls: Option<Vec<general::ToolCall>> = msg
+            .and_then(|m| m.tool_calls.clone())
+            .map(|tcs| tcs.into_iter().map(general::ToolCall::from).collect());
+
+        general::ChatResponse {
+            model: r.model,
+            created_at: r.created.to_string(),
+            message: general::Message {
+                role: msg
+                    .map(|m| m.role.clone())
+                    .unwrap_or_else(|| "assistant".to_string()),
+                content: msg.and_then(|m| m.content.clone()),
+                tool_calls: tool_calls.clone(),
+                tool_name: None,
+            },
+            done: choice
+                .as_ref()
+                .map(|c| c.finish_reason.is_some())
+                .unwrap_or(false),
+            done_reason: choice
+                .as_ref()
+                .map(|c| c.finish_reason.as_deref() == Some("stop"))
+                .unwrap_or(false),
+            total_duration: 0,
+            load_duration: 0,
+            prompt_eval_count: r
+                .usage
+                .as_ref()
+                .map(|u| u.prompt_tokens as usize)
+                .unwrap_or(0),
+            prompt_eval_duration: 0,
+            eval_count: r
+                .usage
+                .as_ref()
+                .map(|u| u.completion_tokens as usize)
+                .unwrap_or(0),
+            tool_calls: None,
+        }
+    }
+}
+
+/// Converts a [`ToolCall`] into a [`general::ToolCall`].
+impl From<ToolCall> for general::ToolCall {
+    fn from(tc: ToolCall) -> Self {
+        general::ToolCall {
+            tool_type: Some(tc.kind),
+            function: general::FunctionCall {
+                name: tc.function.name,
+                arguments: serde_json::from_str(&tc.function.arguments)
+                    .unwrap_or_else(|_| serde_json::json!({})),
+            },
+        }
+    }
+}
+
+// ---------------------------------------------------------------------
 // Example construction
 // ---------------------------------------------------------------------
 
@@ -459,5 +663,107 @@ mod tests {
         let json = serde_json::to_string_pretty(&req).unwrap();
         // println!("{json}");
         assert!(json.contains("get_current_weather"));
+    }
+
+    #[test]
+    fn converts_general_request_without_leaking_ollama_fields() {
+        use crate::general;
+
+        let g = general::ChatRequest {
+            model: "nvidia/nemotron-3.5-lightning-30b-a3b".to_string(),
+            messages: vec![general::Message {
+                role: "user".to_string(),
+                content: Some("Hello".to_string()),
+                tool_calls: None,
+                tool_name: None,
+            }],
+            seed: Some(42),
+            temperature: Some(0.7),
+            top_p: Some(0.9),
+            top_k: Some(40),
+            min_p: Some(0.05),
+            max_ctx_chars: Some(4096),
+            max_prediction_tokens: Some(256),
+            stream: Some(false),
+            ..Default::default()
+        };
+
+        let req: ChatCompletionRequest = g.into();
+        let json = serde_json::to_string(&req).unwrap();
+
+        assert!(json.contains("\"max_tokens\":256"));
+        assert!(!json.contains("max_ctx_chars"));
+        assert!(!json.contains("top_k"));
+        assert!(!json.contains("min_p"));
+        assert!(!json.contains("keep_alive"));
+        assert!(!json.contains("think"));
+        assert!(json.contains("\"seed\":42"));
+        assert!(json.contains("\"stream\":false"));
+    }
+
+    #[test]
+    fn converts_tool_message_to_tool_call_id() {
+        use crate::general;
+
+        let g = general::Message {
+            role: "tool".to_string(),
+            content: Some("42".to_string()),
+            tool_calls: None,
+            tool_name: Some("add_tool".to_string()),
+        };
+
+        let msg = Message::from(g);
+        match msg {
+            Message::Tool {
+                tool_call_id, ..
+            } => assert_eq!(tool_call_id, "add_tool"),
+            _ => panic!("expected a tool message"),
+        }
+    }
+
+    #[test]
+    fn deserializes_response_and_converts_to_general() {
+        use crate::general;
+
+        let json = r#"{
+            "id": "chatcmpl-123",
+            "object": "chat.completion",
+            "created": 1677652288,
+            "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+            "choices": [{
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": null,
+                    "tool_calls": [{
+                        "id": "call_1",
+                        "type": "function",
+                        "function": {
+                            "name": "add_tool",
+                            "arguments": "{\"a\":1,\"b\":2}"
+                        }
+                    }]
+                },
+                "finish_reason": "tool_calls"
+            }],
+            "usage": {
+                "prompt_tokens": 11,
+                "completion_tokens": 7,
+                "total_tokens": 18
+            }
+        }"#;
+
+        let resp: ChatCompletionResponse = serde_json::from_str(json).unwrap();
+        let g: general::ChatResponse = resp.into();
+
+        assert_eq!(g.done_reason, false); // "tool_calls", not "stop"
+        assert_eq!(g.prompt_eval_count, 11);
+        assert_eq!(g.eval_count, 7);
+        assert_eq!(g.created_at, "1677652288");
+
+        let tcs = g.message.tool_calls.unwrap();
+        assert_eq!(tcs.len(), 1);
+        assert_eq!(tcs[0].function.name, "add_tool");
+        assert_eq!(tcs[0].function.arguments, serde_json::json!({"a": 1, "b": 2}));
     }
 }

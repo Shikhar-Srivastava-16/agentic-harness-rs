@@ -111,7 +111,8 @@ pub trait ToolReady: LlmLike {
         dbg!("response done: {:#?}", &r);
 
         let mut resp = r?;
-        let mut content = resp.message.content.clone().unwrap();
+        // FIXME: make sure this is sensible
+        let mut content = resp.message.content.clone().unwrap_or_default();
 
         self.history_mut().push(msg(
             "assistant",

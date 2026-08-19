@@ -1,8 +1,10 @@
 use llms::config::{self, AppConfig, ErrorMode};
-use llms::ollama::Ollama;
-use llms::tooling::ToolReady;
+// use llms::ollama::Ollama;
 use llms::LlmError;
 use llms::LlmLike;
+use llms::minimax::Nvidia;
+use llms::minimax::NvidiaConfig;
+use llms::tooling::ToolReady;
 use serde_json::json;
 use std::io::{self, Write};
 
@@ -54,7 +56,6 @@ fn main() {
             Ok(ans) => println!("{}", ans),
             Err(e) => eprintln!("Error: {}", e),
         }
-        llms::bench::finalize();
         return;
     }
 
@@ -76,15 +77,17 @@ fn main() {
             Err(e) => eprintln!("Error: {}", e),
         }
     }
-    llms::bench::finalize();
 }
 
-fn init_backend(cfg: &AppConfig) -> Result<Ollama, LlmError> {
-    let mut o = Ollama::init(
+fn init_backend(cfg: &AppConfig) -> Result<Nvidia, LlmError> {
+    let mut o = Nvidia::init(
         Some(cfg.system_prompt.clone()),
         None,
-        llms::ollama::OllamaConfig {
-            name: cfg.model.clone(),
+        NvidiaConfig {
+            api_key: String::from(
+                "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",
+            ),
+            model: String::from("nvidia/nemotron-3.5-lightning-30b-a3b"),
         },
     )?;
     dbg!("initialized ollama backend");
