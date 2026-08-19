@@ -601,7 +601,57 @@ dependencies = [
 ]
 
 [[package]]
+name = "harness_database"
+version = "0.1.0"
+dependencies = [
+ "benchmarks",
+ "llms",
+ "serde_json",
+ "toml",
+]
+
+[[package]]
+name = "harness_finance"
+version = "0.1.0"
+dependencies = [
+ "benchmarks",
+ "llms",
+ "serde_json",
+ "toml",
+]
+
+[[package]]
+name = "harness_math"
+version = "0.1.0"
+dependencies = [
+ "benchmarks",
+ "llms",
+ "serde_json",
+ "toml",
+]
+
+[[package]]
+name = "harness_research"
+version = "0.1.0"
+dependencies = [
+ "benchmarks",
+ "llms",
+ "serde_json",
+ "toml",
+]
+
+[[package]]
 name = "harness_rs"
+version = "0.1.0"
+dependencies = [
+ "benchmarks",
+ "llms",
+ "serde_json",
+ "toml",
+]
+
+[[package]]
+name = "harness_text"
 version = "0.1.0"
 dependencies = [
  "benchmarks",

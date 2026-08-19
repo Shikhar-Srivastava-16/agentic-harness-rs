@@ -1,0 +1,22 @@
+model = "gemma4:e4b"
+url = "http://localhost:11434"
+iterations = 10
+system_prompt = "You are a precise arithmetic assistant. Always use the provided math tools for any computation; never calculate in your own head. The tools are always correct."
+error_mode = "strict"
+backend = "ollama"
+api_key = ""
+query = ""
+bench_output = "bench_output.jsonl"
+langchain_output = "bench_agentexecutor.jsonl"
+prompts = [
+    "Calculate 18 + 24 using add_tool.",
+    "Use multiply_tool to multiply 7 by 8, then use add_tool to add 5 to the result.",
+    "Use power_tool to compute 2 to the power of 10, then use divide_tool to divide that result by 128.",
+    "Use gcd_tool to compute gcd(144, 96), then use multiply_tool to multiply the result by 10.",
+    "Find the factorial of 7 using factorial_tool.",
+    "What is the 15th Fibonacci number? Use fibonacci_tool.",
+    "Use average_tool on the numbers [4, 8, 15, 16, 23, 42].",
+    "Divide 100 by 6 using divide_tool and report the result.",
+    "Use modulo_tool to compute 9 modulo 4, then use power_tool to raise the result to the 3rd power.",
+    "Use factorial_tool to get the factorials of 3 and 4, then use add_tool to sum them.",
+]

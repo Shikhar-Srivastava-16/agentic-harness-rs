@@ -9,6 +9,11 @@ members = [
     "crates/llms",
     "crates/benchmarks",
     "crates/benchmarks/tests/comparison_tests/simple/simple_1/harness_rs",
+    "crates/benchmarks/tests/comparison_tests/agents/math_agent/harness_rs",
+    "crates/benchmarks/tests/comparison_tests/agents/research_agent/harness_rs",
+    "crates/benchmarks/tests/comparison_tests/agents/text_agent/harness_rs",
+    "crates/benchmarks/tests/comparison_tests/agents/database_agent/harness_rs",
+    "crates/benchmarks/tests/comparison_tests/agents/finance_agent/harness_rs",
     "/home/shikhars/Documents/shikhar/Documents/yotta/ollama-client/Cargo.toml",
 ]
 

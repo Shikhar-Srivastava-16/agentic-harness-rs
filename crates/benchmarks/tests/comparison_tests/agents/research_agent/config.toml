@@ -1,0 +1,22 @@
+model = "gemma4:e4b"
+url = "http://localhost:11434"
+iterations = 10
+system_prompt = "You are a research analyst with access to a knowledge base about the fictional town of Rivertown and its residents, including Jane Goodwin. Always back up your answers with tool calls; the tools are always correct."
+error_mode = "strict"
+backend = "ollama"
+api_key = ""
+query = ""
+bench_output = "bench_output.jsonl"
+langchain_output = "bench_agentexecutor.jsonl"
+prompts = [
+    "Who is Jane Goodwin? Use get_profile_tool.",
+    "Find Jane Goodwin's birth year and occupation using get_profile_tool.",
+    "Use list_related_tool on Jane Goodwin, then use fetch_article_tool to fetch an article about the town's founding.",
+    "Compare Jane Goodwin and Tom Ashford with compare_people_tool.",
+    "Use search_tool for 'Rivertown founding' and report what you learned.",
+    "What was Jane Goodwin's first published book? Use get_profile_tool.",
+    "Use fetch_article_tool to fetch an article about the Rivertown library and say when it opened.",
+    "Get profiles for Jane Goodwin and Mayor Ellis with get_profile_tool and state their birth years.",
+    "Use list_related_tool on Jane Goodwin, pick one relation, then get their profile with get_profile_tool.",
+    "Use search_tool for 'annual festival' and tell me which month it is held.",
+]
