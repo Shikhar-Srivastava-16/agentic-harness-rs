@@ -1,0 +1,22 @@
+model = "gemma4:e4b"
+url = "http://localhost:11434"
+iterations = 10
+system_prompt = "You are a text-processing assistant. Always use the provided text tools to transform or analyse text instead of reasoning about it yourself. The tools are always correct."
+error_mode = "strict"
+backend = "ollama"
+api_key = ""
+query = ""
+bench_output = "bench_output.jsonl"
+langchain_output = "bench_agentexecutor.jsonl"
+prompts = [
+    "Reverse the string 'hello world' using reverse_tool.",
+    "How many words are in 'the quick brown fox jumps over the lazy dog'? Use word_count_tool.",
+    "Extract all email addresses from 'mail me at a@b.com or c@d.org' using extract_emails_tool.",
+    "Is 'A man, a plan, a canal: Panama' a palindrome? Use is_palindrome_tool.",
+    "Are 'listen' and 'silent' anagrams? Use is_anagram_tool.",
+    "Encode 'openai' in base64 with base64_encode_tool, then decode the result with base64_decode_tool to verify.",
+    "Slugify 'Hello, World! How are you?' with slugify_tool.",
+    "Convert 'camelCaseFunction' to snake_case using camel_to_snake_tool.",
+    "How many characters (excluding spaces) are in 'pneumonoultramicroscopicsilicovolcanoconiosis'? Use char_count_tool.",
+    "Extract emails from 'x@y.z and p@q.r' with extract_emails_tool, then reverse the first one with reverse_tool.",
+]

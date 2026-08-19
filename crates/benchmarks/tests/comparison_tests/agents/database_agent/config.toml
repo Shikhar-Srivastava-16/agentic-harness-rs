@@ -1,0 +1,23 @@
+model = "gemma4:e4b"
+url = "http://localhost:11434"
+iterations = 10
+system_prompt = "You are a data analyst querying the sample company database. Always answer using the provided database tools; the tools are always correct. The write tools are dry-runs and never actually mutate data."
+error_mode = "strict"
+backend = "ollama"
+api_key = ""
+query = ""
+bench_output = "bench_output.jsonl"
+langchain_output = "bench_agentexecutor.jsonl"
+prompts = [
+    "List the tables in the database using list_tables_tool.",
+    "Get the schema of the employees table with get_schema_tool.",
+    "How many employees are there? Use count_rows_tool.",
+    "Show the employee with id 3 using get_row_tool.",
+    "Query employees in the Sales department with query_table_tool.",
+    "What is the average salary of employees? Use aggregate_tool.",
+    "Find the most expensive product using aggregate_tool or query_table_tool.",
+    "Which products have stock under 10? Use query_table_tool.",
+    "Give the max and min salary in the company with aggregate_tool.",
+    "Simulate inserting a new employee 'Pat Doe' into the employees table using simulate_insert_tool.",
+    "Count orders and give the total order amount with count_rows_tool and aggregate_tool.",
+]

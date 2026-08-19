@@ -1,0 +1,23 @@
+model = "gemma4:e4b"
+url = "http://localhost:11434"
+iterations = 10
+system_prompt = "You are a personal finance assistant. Always use the provided finance tools for prices, rates, interest and calculations; the tools are always correct."
+error_mode = "strict"
+backend = "ollama"
+api_key = ""
+query = ""
+bench_output = "bench_output.jsonl"
+langchain_output = "bench_agentexecutor.jsonl"
+prompts = [
+    "What is the current price of AAPL? Use get_stock_price_tool.",
+    "Convert 1000 USD to EUR with convert_currency_tool.",
+    "Convert 250 GBP to JPY using convert_currency_tool.",
+    "What will 5000 dollars grow to in 10 years at 6% annually? Use compound_growth_tool.",
+    "Compute the monthly payment for a 30,000 loan at 5% over 5 years using loan_payment_tool.",
+    "What tax bracket is a salary of 85,000 in? Use tax_bracket_tool.",
+    "If assets are 120,000 and liabilities are 40,000, what is the net worth? Use net_worth_tool.",
+    "Sum the amounts in this ledger with parse_ledger_tool: 'coffee -4.50, salary +2000, rent -900, bonus +150'.",
+    "Use get_stock_price_tool to get GOOG's price, then tell me the total cost of buying 10 shares.",
+    "Convert 5000 USD to INR with convert_currency_tool, then compute 5 years of 4% growth with compound_growth_tool.",
+    "Use get_stock_price_tool for RIVR and convert_currency_tool to convert that price to GBP.",
+]
