@@ -84,9 +84,7 @@ fn init_backend(cfg: &AppConfig) -> Result<Nvidia, LlmError> {
         Some(cfg.system_prompt.clone()),
         None,
         NvidiaConfig {
-            api_key: String::from(
-                "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",
-            ),
+            api_key: cfg.api_key.clone().unwrap_or_default(),
             model: String::from("nvidia/nemotron-3.5-lightning-30b-a3b"),
         },
     )?;

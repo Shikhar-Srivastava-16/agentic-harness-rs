@@ -9,8 +9,6 @@ pub struct HarnessConfig {
     pub error_mode: String,
     pub backend: String,
     #[serde(default)]
-    pub api_key: Option<String>,
-    #[serde(default)]
     pub query: Option<String>,
     pub bench_output: String,
     pub langchain_output: String,

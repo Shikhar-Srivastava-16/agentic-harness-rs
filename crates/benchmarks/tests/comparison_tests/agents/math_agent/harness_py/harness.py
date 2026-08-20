@@ -17,7 +17,7 @@ import tomllib
 from pathlib import Path
 from typing import Any, Optional
 
-from langchain_ollama import ChatOllama
+from langchain_nvidia_ai_endpoints import ChatNVIDIA
 from langchain_core.tools import tool
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 try:
@@ -112,9 +112,32 @@ def average_tool(nums: list[float]) -> str:
 
 
 def init_backend(
-    system_prompt: str, model: str, base_url: str, handle_parsing_errors: bool
+    system_prompt: str,
+    model: str,
+    base_url: str,
+    api_key: str,
+    handle_parsing_errors: bool,
+    temperature: float = 1,
+    top_p: float = 0.95,
+    max_tokens: int = 16384,
+    reasoning_budget: int = 16384,
+    enable_thinking: bool = True,
 ) -> AgentExecutor:
-    llm = ChatOllama(model=model, base_url=base_url, temperature=0)
+    base = (
+        base_url[: -len("/chat/completions")]
+        if base_url.endswith("/chat/completions")
+        else base_url
+    )
+    llm = ChatNVIDIA(
+        model=model,
+        nvidia_api_key=api_key or None,
+        base_url=base or None,
+        temperature=temperature,
+        top_p=top_p,
+        max_tokens=max_tokens,
+        reasoning_budget=reasoning_budget,
+        chat_template_kwargs={"enable_thinking": enable_thinking},
+    )
     tools = [
         add_tool,
         subtract_tool,
@@ -217,9 +240,15 @@ async def run_bench() -> None:
 
     iterations = int(cfg["iterations"])
     model = cfg["model"]
-    ollama_url = cfg["url"]
+    base_url = cfg["url"]
+    api_key = cfg.get("api_key", "")
     system_prompt = cfg["system_prompt"]
     error_mode = cfg.get("error_mode", "strict")
+    temperature = float(cfg.get("temperature", 1))
+    top_p = float(cfg.get("top_p", 0.95))
+    max_tokens = int(cfg.get("max_tokens", 16384))
+    reasoning_budget = int(cfg.get("reasoning_budget", 16384))
+    enable_thinking = bool(cfg.get("enable_thinking", True))
     prompts = cfg.get("prompts")
     if not prompts:
         raise SystemExit("config 'prompts' must be a non-empty list")
@@ -230,7 +259,18 @@ async def run_bench() -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     open(output_path, "w").close()
 
-    executor = init_backend(system_prompt, model, ollama_url, handle_parsing_errors)
+    executor = init_backend(
+        system_prompt,
+        model,
+        base_url,
+        api_key,
+        handle_parsing_errors,
+        temperature,
+        top_p,
+        max_tokens,
+        reasoning_budget,
+        enable_thinking,
+    )
 
     print(f"Running {iterations} iterations with model '{model}'")
 
@@ -246,6 +286,10 @@ async def run_bench() -> None:
             answer = ""
             async for event in executor.astream_events({"input": prompt}, version="v2"):
                 tracker.handle_event(event)
+
+                # TODO: print chunk.additional_kwargs["reasoning_content"] here when
+                # reasoning capture is wanted. Nemotron streams thinking tokens in
+                # on_chat_model_stream chunks' additional_kwargs["reasoning_content"].
 
                 if event.get("event") == "on_chain_end" and event.get("name") == "AgentExecutor":
                     data = event.get("data", {})

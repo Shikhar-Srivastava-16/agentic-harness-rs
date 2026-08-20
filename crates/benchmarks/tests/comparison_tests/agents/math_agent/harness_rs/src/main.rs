@@ -114,11 +114,15 @@ fn average_tool(args: String) -> String {
 }
 
 fn init_backend(cfg: &AppConfig) -> Result<Nvidia, llms::LlmError> {
+    let api = std::env::var("API_KEY").expect("API key not found");
+
+    eprintln!("{api}");
+
     let mut o = Nvidia::init(
         Some(cfg.system_prompt.clone()),
         Some(cfg.url.clone()),
         llms::minimax::NvidiaConfig {
-            api_key: std::env::var("API_KEY").expect("API key not found"),
+            api_key: api,
             model: cfg.model.clone(),
         },
     )?;

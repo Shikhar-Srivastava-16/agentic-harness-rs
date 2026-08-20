@@ -1,9 +1,14 @@
-model = "gemma4:e4b"
-url = "http://localhost:11434"
+model = "nvidia/nemotron-3.5-lightning-30b-a3b"
+url = "https://integrate.api.nvidia.com/v1/chat/completions"
 iterations = 10
 system_prompt = "You are a helpful assistant that uses tools when needed."
 error_mode = "strict"
-backend = "ollama"
+backend = "nvidia"
+temperature = 1
+top_p = 0.95
+max_tokens = 16384
+reasoning_budget = 16384
+enable_thinking = true
 query = ""
 bench_output = "bench_output.jsonl"
 langchain_output = "bench_agentexecutor.jsonl"

@@ -21,6 +21,7 @@
           drawio
           opencode
           herdr
+          nodejs
         ];
 
         # System libraries go here (e.g. openssl, pkg-config)
@@ -35,17 +36,19 @@
           llvmPackages.openmp
           faiss
           uv
-          (pkgs.python3.withPackages (python-pkgs: with python-pkgs; [
-            # select Python packages here
-            langchain
-            langchain-ollama
-            langchain-core
-            langgraph
-            matplotlib
-            pandas
-            langchain-classic
-            numpy
-          ]))
+          # (pkgs.python3.withPackages (python-pkgs: with python-pkgs; [
+          #   # select Python packages here
+          #   langchain
+          #   langchain-ollama
+          #   langchain-openai
+          #   langchain-nvidia-ai-endpoints
+          #   langchain-core
+          #   langgraph
+          #   matplotlib
+          #   pandas
+          #   langchain-classic
+          #   numpy
+          # ]))
         ];
 
         # rust-specific dependencies

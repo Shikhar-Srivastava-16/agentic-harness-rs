@@ -1,8 +1,0 @@
-[package]
-name = "bench-harness-llms"
-version = "0.1.0"
-edition = "2024"
-
-[dependencies]
-llms = { path = "../../llms", features = ["bench"] }
-serde_json = "1.0"

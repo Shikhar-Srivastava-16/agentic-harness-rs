@@ -19,18 +19,21 @@ use std::path::Path;
 // config.toml, harness.py, and a harness_rs/ directory.
 
 fn comparison_test(dir: &str) -> Result<(), Box<dyn Error>> {
-    println!("Test Comparison Main for {dir}");
+    eprintln!("Test Comparison Main for {dir}");
 
     // python harness
+
+    eprintln!("Python Main for {dir}");
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let harness = root
         .join("tests/comparison_tests")
         .join(dir)
-        .join("harness_py/harness.py");
+        .join("harness_py/");
 
     engine::run_uv_project(harness.to_str().unwrap())?;
 
     // cargo harness
+    eprintln!("Rust Main for {dir}");
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let harness = root
         .join("tests/comparison_tests")
