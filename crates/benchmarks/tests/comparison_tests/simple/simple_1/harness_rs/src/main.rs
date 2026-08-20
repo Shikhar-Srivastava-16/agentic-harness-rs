@@ -72,7 +72,7 @@ fn main() {
         system_prompt: cfg.system_prompt.clone(),
         model: cfg.model.clone(),
         url: cfg.url.clone(),
-        api_key: cfg.api_key.clone(),
+        api_key: None,
         backend: cfg.backend.clone(),
         query: cfg.query.clone(),
         error_mode: ErrorMode::from_str(&cfg.error_mode),

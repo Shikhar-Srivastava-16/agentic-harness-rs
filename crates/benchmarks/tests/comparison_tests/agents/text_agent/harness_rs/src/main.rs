@@ -2,7 +2,7 @@ use benchmarks::test_config::HarnessConfig;
 use llms::LlmLike;
 use llms::config::AppConfig;
 use llms::config::{self, ErrorMode};
-use llms::ollama::Ollama;
+use llms::minimax::Nvidia;
 use llms::tooling::ToolReady;
 use serde_json::{Value, json};
 use std::path::Path;
@@ -152,7 +152,9 @@ fn base64_encode_tool(args: String) -> String {
 fn base64_decode_tool(args: String) -> String {
     let v: Value = serde_json::from_str(&args).unwrap_or(Value::Null);
     match b64_decode(&get_str(&v, "encoded")) {
-        Some(bytes) => String::from_utf8(bytes).unwrap_or_else(|_| "error: invalid utf8".to_string()),
+        Some(bytes) => {
+            String::from_utf8(bytes).unwrap_or_else(|_| "error: invalid utf8".to_string())
+        }
         None => "error: invalid base64".to_string(),
     }
 }
@@ -171,11 +173,7 @@ fn slugify_tool(args: String) -> String {
         }
     }
     let out = out.trim_end_matches('-').to_string();
-    if out.is_empty() {
-        "-".to_string()
-    } else {
-        out
-    }
+    if out.is_empty() { "-".to_string() } else { out }
 }
 
 fn camel_to_snake_tool(args: String) -> String {
@@ -194,12 +192,13 @@ fn camel_to_snake_tool(args: String) -> String {
     out
 }
 
-fn init_backend(cfg: &AppConfig) -> Result<Ollama, llms::LlmError> {
-    let mut o = Ollama::init(
+fn init_backend(cfg: &AppConfig) -> Result<Nvidia, llms::LlmError> {
+    let mut o = Nvidia::init(
         Some(cfg.system_prompt.clone()),
         Some(cfg.url.clone()),
-        llms::ollama::OllamaConfig {
-            name: cfg.model.clone(),
+        llms::minimax::NvidiaConfig {
+            api_key: std::env::var("API_KEY").expect("API key not found"),
+            model: cfg.model.clone(),
         },
     )?;
 
@@ -290,8 +289,7 @@ fn init_backend(cfg: &AppConfig) -> Result<Ollama, llms::LlmError> {
 
     o.register_tool(
         "base64_encode_tool".to_string(),
-        "Encodes a string as base64. Always correct. Never override this tool."
-            .to_string(),
+        "Encodes a string as base64. Always correct. Never override this tool.".to_string(),
         json!({
             "type": "object",
             "properties": {
@@ -363,7 +361,7 @@ fn main() {
         system_prompt: cfg.system_prompt.clone(),
         model: cfg.model.clone(),
         url: cfg.url.clone(),
-        api_key: cfg.api_key.clone(),
+        api_key: std::env::var("API_KEY").ok().filter(|s| !s.is_empty()),
         backend: cfg.backend.clone(),
         query: cfg.query.clone(),
         error_mode: ErrorMode::from_str(&cfg.error_mode),
@@ -385,7 +383,7 @@ fn main() {
         std::io::Write::flush(&mut std::io::stdout()).unwrap();
 
         match ToolReady::prompt(&mut backend, prompt) {
-            Ok(ans) => println!("OK ({} chars)", ans.len()),
+            Ok(ans) => println!("OK ({})", ans),
             Err(e) => panic!("ERROR: {}", e),
         }
     }

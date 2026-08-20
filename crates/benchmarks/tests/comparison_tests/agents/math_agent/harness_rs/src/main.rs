@@ -2,7 +2,7 @@ use benchmarks::test_config::HarnessConfig;
 use llms::LlmLike;
 use llms::config::AppConfig;
 use llms::config::{self, ErrorMode};
-use llms::ollama::Ollama;
+use llms::minimax::Nvidia;
 use llms::tooling::ToolReady;
 use serde_json::{Value, json};
 use std::path::Path;
@@ -113,12 +113,13 @@ fn average_tool(args: String) -> String {
     fmt_num(sum / nums.len() as f64)
 }
 
-fn init_backend(cfg: &AppConfig) -> Result<Ollama, llms::LlmError> {
-    let mut o = Ollama::init(
+fn init_backend(cfg: &AppConfig) -> Result<Nvidia, llms::LlmError> {
+    let mut o = Nvidia::init(
         Some(cfg.system_prompt.clone()),
         Some(cfg.url.clone()),
-        llms::ollama::OllamaConfig {
-            name: cfg.model.clone(),
+        llms::minimax::NvidiaConfig {
+            api_key: std::env::var("API_KEY").expect("API key not found"),
+            model: cfg.model.clone(),
         },
     )?;
 
@@ -288,7 +289,7 @@ fn main() {
         system_prompt: cfg.system_prompt.clone(),
         model: cfg.model.clone(),
         url: cfg.url.clone(),
-        api_key: cfg.api_key.clone(),
+        api_key: std::env::var("API_KEY").ok().filter(|s| !s.is_empty()),
         backend: cfg.backend.clone(),
         query: cfg.query.clone(),
         error_mode: ErrorMode::from_str(&cfg.error_mode),
@@ -310,7 +311,7 @@ fn main() {
         std::io::Write::flush(&mut std::io::stdout()).unwrap();
 
         match ToolReady::prompt(&mut backend, prompt) {
-            Ok(ans) => println!("OK ({} chars)", ans.len()),
+            Ok(ans) => println!("OK ({})", ans),
             Err(e) => panic!("ERROR: {}", e),
         }
     }

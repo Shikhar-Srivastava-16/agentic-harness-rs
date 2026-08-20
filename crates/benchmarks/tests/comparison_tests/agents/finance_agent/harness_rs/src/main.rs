@@ -2,7 +2,7 @@ use benchmarks::test_config::HarnessConfig;
 use llms::LlmLike;
 use llms::config::AppConfig;
 use llms::config::{self, ErrorMode};
-use llms::ollama::Ollama;
+use llms::minimax::Nvidia;
 use llms::tooling::ToolReady;
 use serde_json::{Value, json};
 use std::path::Path;
@@ -69,7 +69,13 @@ fn convert_currency_tool(args: String) -> String {
     match (rate_for(&from), rate_for(&to)) {
         (Some(r_from), Some(r_to)) => {
             let result = amount / r_from * r_to;
-            format!("{} {} = {} {}", fmt_2(amount), from.trim().to_uppercase(), fmt_2(result), to.trim().to_uppercase())
+            format!(
+                "{} {} = {} {}",
+                fmt_2(amount),
+                from.trim().to_uppercase(),
+                fmt_2(result),
+                to.trim().to_uppercase()
+            )
         }
         _ => format!("error: unknown currency '{}' or '{}'", from, to),
     }
@@ -81,7 +87,12 @@ fn compound_growth_tool(args: String) -> String {
     let rate_pct = get_f64(&v, "annual_rate_pct");
     let years = get_f64(&v, "years");
     let result = principal * (1.0 + rate_pct / 100.0).powf(years);
-    format!("{} grows to {} after {} years", fmt_num(principal), fmt_2(result), fmt_num(years))
+    format!(
+        "{} grows to {} after {} years",
+        fmt_num(principal),
+        fmt_2(result),
+        fmt_num(years)
+    )
 }
 
 fn loan_payment_tool(args: String) -> String {
@@ -123,7 +134,12 @@ fn tax_bracket_tool(args: String) -> String {
         (None, Some(h)) => format!("income up to {}", fmt_num(h)),
         (None, None) => String::new(),
     };
-    format!("the salary {} is in the {} tax bracket ({})", fmt_num(salary), bracket, range)
+    format!(
+        "the salary {} is in the {} tax bracket ({})",
+        fmt_num(salary),
+        bracket,
+        range
+    )
 }
 
 fn net_worth_tool(args: String) -> String {
@@ -164,12 +180,13 @@ fn parse_ledger_tool(args: String) -> String {
     fmt_2(sum)
 }
 
-fn init_backend(cfg: &AppConfig) -> Result<Ollama, llms::LlmError> {
-    let mut o = Ollama::init(
+fn init_backend(cfg: &AppConfig) -> Result<Nvidia, llms::LlmError> {
+    let mut o = Nvidia::init(
         Some(cfg.system_prompt.clone()),
         Some(cfg.url.clone()),
-        llms::ollama::OllamaConfig {
-            name: cfg.model.clone(),
+        llms::minimax::NvidiaConfig {
+            api_key: std::env::var("API_KEY").expect("API key not found"),
+            model: cfg.model.clone(),
         },
     )?;
 
@@ -297,7 +314,7 @@ fn main() {
         system_prompt: cfg.system_prompt.clone(),
         model: cfg.model.clone(),
         url: cfg.url.clone(),
-        api_key: cfg.api_key.clone(),
+        api_key: std::env::var("API_KEY").ok().filter(|s| !s.is_empty()),
         backend: cfg.backend.clone(),
         query: cfg.query.clone(),
         error_mode: ErrorMode::from_str(&cfg.error_mode),
@@ -319,7 +336,7 @@ fn main() {
         std::io::Write::flush(&mut std::io::stdout()).unwrap();
 
         match ToolReady::prompt(&mut backend, prompt) {
-            Ok(ans) => println!("OK ({} chars)", ans.len()),
+            Ok(ans) => println!("OK ({})", ans),
             Err(e) => panic!("ERROR: {}", e),
         }
     }

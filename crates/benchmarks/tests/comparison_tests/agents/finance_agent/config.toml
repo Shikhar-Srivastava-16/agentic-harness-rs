@@ -1,10 +1,9 @@
-model = "gemma4:e4b"
-url = "http://localhost:11434"
+model = "nvidia/nemotron-3.5-lightning-30b-a3b"
+url = "https://integrate.api.nvidia.com/v1/chat/completions"
 iterations = 10
 system_prompt = "You are a personal finance assistant. Always use the provided finance tools for prices, rates, interest and calculations; the tools are always correct."
 error_mode = "strict"
-backend = "ollama"
-api_key = ""
+backend = "nvidia"
 query = ""
 bench_output = "bench_output.jsonl"
 langchain_output = "bench_agentexecutor.jsonl"

@@ -2,7 +2,7 @@ use benchmarks::test_config::HarnessConfig;
 use llms::LlmLike;
 use llms::config::AppConfig;
 use llms::config::{self, ErrorMode};
-use llms::ollama::Ollama;
+use llms::minimax::Nvidia;
 use llms::tooling::ToolReady;
 use serde_json::{Value, json};
 use std::path::Path;
@@ -84,8 +84,12 @@ fn fact_for(query: &str) -> Option<String> {
 
 fn related(person: &str) -> Option<String> {
     match person.trim().to_lowercase().as_str() {
-        "jane goodwin" | "jane" => Some("Jane Goodwin is related to: Tom Ashford, Rosa Lin.".to_string()),
-        "tom ashford" | "tom" => Some("Tom Ashford is related to: Jane Goodwin, Mayor Ellis.".to_string()),
+        "jane goodwin" | "jane" => {
+            Some("Jane Goodwin is related to: Tom Ashford, Rosa Lin.".to_string())
+        }
+        "tom ashford" | "tom" => {
+            Some("Tom Ashford is related to: Jane Goodwin, Mayor Ellis.".to_string())
+        }
         "rosa lin" | "rosa" => Some("Rosa Lin is related to: Jane Goodwin.".to_string()),
         "mayor ellis" | "ellis" => Some("Mayor Ellis is related to: Tom Ashford.".to_string()),
         _ => None,
@@ -132,18 +136,16 @@ fn compare_people_tool(args: String) -> String {
     let b = get_str(&v, "person_b");
     let (ay, ao) = profile_parts(&a);
     let (by, bo) = profile_parts(&b);
-    format!(
-        "{} ({}, born {}) | {} ({}, born {})",
-        a, ao, ay, b, bo, by
-    )
+    format!("{} ({}, born {}) | {} ({}, born {})", a, ao, ay, b, bo, by)
 }
 
-fn init_backend(cfg: &AppConfig) -> Result<Ollama, llms::LlmError> {
-    let mut o = Ollama::init(
+fn init_backend(cfg: &AppConfig) -> Result<Nvidia, llms::LlmError> {
+    let mut o = Nvidia::init(
         Some(cfg.system_prompt.clone()),
         Some(cfg.url.clone()),
-        llms::ollama::OllamaConfig {
-            name: cfg.model.clone(),
+        llms::minimax::NvidiaConfig {
+            api_key: std::env::var("API_KEY").expect("API key not found"),
+            model: cfg.model.clone(),
         },
     )?;
 
@@ -237,7 +239,7 @@ fn main() {
         system_prompt: cfg.system_prompt.clone(),
         model: cfg.model.clone(),
         url: cfg.url.clone(),
-        api_key: cfg.api_key.clone(),
+        api_key: std::env::var("API_KEY").ok().filter(|s| !s.is_empty()),
         backend: cfg.backend.clone(),
         query: cfg.query.clone(),
         error_mode: ErrorMode::from_str(&cfg.error_mode),

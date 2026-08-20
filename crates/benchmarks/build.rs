@@ -30,6 +30,8 @@ fn main() -> std::io::Result<()> {
 
     write_comparison_tests()?;
 
+    write_roundtrip_tests()?;
+
     Ok(())
 }
 
@@ -41,16 +43,19 @@ fn write_comparison_tests() -> std::io::Result<()> {
 
     // Entry needs to have been ensured to be Ok
     for entry in comparison_test_dirs(&manifest_dir)? {
+        let mut name = entry
+            .path()
+            .strip_prefix(base_dir)
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .replace(['-', '/'], "_");
+
+        name.push_str("COMPARISON");
         write!(
             f,
             include_str!("./tests/comparison_template"),
-            test_name = entry
-                .path()
-                .strip_prefix(base_dir)
-                .unwrap()
-                .to_str()
-                .unwrap()
-                .replace(['-', '/'], "_"),
+            test_name = name,
             test_dir = entry.path().to_str().unwrap(),
             ignore_attr = "",
         )?;
@@ -62,6 +67,7 @@ fn write_comparison_tests() -> std::io::Result<()> {
 /// Look for the directories which qualify as 'test directories' and can be used to run tests.
 /// This will recursively search the entire directory
 /// tests can be inside other tests
+/// Each directory will have a rust harness, a python harness and a config toml file
 fn comparison_test_dirs(manifest_dir: &str) -> std::io::Result<Vec<DirEntry>> {
     let root = Path::new(manifest_dir).join("tests/comparison_tests");
     let mut dirs = Vec::new();
@@ -77,6 +83,57 @@ fn comparison_test_dirs(manifest_dir: &str) -> std::io::Result<Vec<DirEntry>> {
             && path.join("harness_py").is_dir()
             && path.join("harness_rs").is_dir()
         {
+            dirs.push(entry);
+        }
+    }
+
+    Ok(dirs)
+}
+
+fn write_roundtrip_tests() -> std::io::Result<()> {
+    let out_dir = var("OUT_DIR").map_err(std::io::Error::other)?; // wrapping in a std::io::Error to match main's error type
+    let manifest_dir = var("CARGO_MANIFEST_DIR").map_err(std::io::Error::other)?;
+    let mut f = File::create(format!("{}/roundtrip_test.rs", out_dir))?;
+    let base_dir = Path::new(&manifest_dir);
+
+    // Entry needs to have been ensured to be Ok
+    for entry in roundtrip_test_dirs(&manifest_dir)? {
+        let mut test_name = entry
+            .path()
+            .strip_prefix(base_dir)
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .replace(['-', '/'], "_");
+        test_name.push_str("ROUNDTRIP");
+        write!(
+            f,
+            include_str!("./tests/roundtrip_template"),
+            test_name = test_name,
+            test_dir = entry.path().to_str().unwrap(),
+            ignore_attr = "",
+        )?;
+    }
+
+    Ok(())
+}
+
+/// Look for the directories which qualify as 'roundtrip test directories' and can be used to run tests.
+/// This will recursively search the entire directory
+/// tests can be inside other tests
+/// Each directory will have a rust harness and a config toml file
+fn roundtrip_test_dirs(manifest_dir: &str) -> std::io::Result<Vec<DirEntry>> {
+    let root = Path::new(manifest_dir).join("tests/comparison_tests");
+    let mut dirs = Vec::new();
+
+    for entry in WalkDir::new(&root) {
+        let entry = entry?;
+        if !entry.file_type().is_dir() {
+            continue;
+        }
+
+        let path = entry.path();
+        if path.join("config.toml").is_file() && path.join("harness_rs").is_dir() {
             dirs.push(entry);
         }
     }

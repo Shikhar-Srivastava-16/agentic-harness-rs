@@ -4,7 +4,6 @@ iterations = 10
 system_prompt = "You are a helpful assistant that uses tools when needed."
 error_mode = "strict"
 backend = "ollama"
-api_key = ""
 query = ""
 bench_output = "bench_output.jsonl"
 langchain_output = "bench_agentexecutor.jsonl"
