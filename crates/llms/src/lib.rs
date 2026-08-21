@@ -8,12 +8,14 @@ pub mod config;
 pub mod format;
 pub mod general;
 pub mod minimax;
-pub mod ollama;
+// pub mod ollama;
 pub mod tooling;
 
 pub use tooling::ToolReady;
 
 pub type LlmResult<T> = std::result::Result<T, LlmError>;
+
+use reqwest::blocking::Client;
 
 /// Placeholder enum for future output types (currently only `String` is supported).
 enum LlmOutput {
@@ -81,6 +83,9 @@ pub trait LlmLike {
     /// Request timeout in seconds.
     fn timeout(&self) -> &u64;
 
+    /// Get the client from LLM
+    fn client(&self) -> &Client;
+
     /// This method allows you to set a system prompt after the LLM has been created. This is
     /// because the system prompt is the only `dynamic` property that is currently anticipated to
     /// exist.
@@ -115,6 +120,7 @@ pub trait LlmLike {
         self.history_mut()
             .push(msg(&user_cue, Some(prompt), None, None));
 
+        // save this here
         let request_body = general::ChatRequest {
             model: self.model().clone(),
             messages: self.history().clone(),

@@ -10,6 +10,8 @@ use crate::tooling::ToolMap;
 use crate::tooling::ToolReady;
 use std::collections::HashMap;
 
+use reqwest::blocking::Client;
+
 /// NVIDIA OpenAI-compatible backend implementation of [`LlmLike`] and [`ToolReady`].
 ///
 /// Talks to any OpenAI Chat Completions-compatible endpoint (NVIDIA NIM, vLLM, ...)
@@ -22,6 +24,7 @@ pub struct Nvidia {
     api_key: String,
     hist: Vec<general::Message>,
     timeout: u64,
+    client: Client,
     pub tools: ToolMap,
     pub registered_tools: Vec<ToolDef>,
 }
@@ -29,13 +32,21 @@ pub struct Nvidia {
 impl Default for Nvidia {
     /// Sensible defaults: Nemotron on the NVIDIA API, 300s timeout.
     fn default() -> Self {
+        let tout = 300;
+        eprintln!("building client");
+        let cl = Client::builder()
+            .timeout(std::time::Duration::from_secs(tout))
+            .build()
+            .unwrap();
+
         Nvidia {
             sys_pr: None,
             model: String::from("nvidia/nemotron-3.5-lightning-30b-a3b"),
             rest_url: String::from("https://integrate.api.nvidia.com/v1/chat/completions"),
             api_key: String::new(),
             hist: Vec::new(),
-            timeout: 300,
+            timeout: tout,
+            client: cl,
             tools: HashMap::new(),
             registered_tools: Vec::new(),
         }
@@ -67,6 +78,10 @@ impl LlmLike for Nvidia {
         &self.timeout
     }
 
+    fn client(&self) -> &Client {
+        &self.client
+    }
+
     fn raw_query(
         &mut self,
         request_body: format::openai::ChatCompletionRequest,
@@ -74,12 +89,8 @@ impl LlmLike for Nvidia {
         #[cfg(any(feature = "bench", feature = "bench-threadsafe"))]
         crate::bench::before_http_send(&self.model);
 
-        let client = reqwest::blocking::Client::builder()
-            .timeout(std::time::Duration::from_secs(self.timeout))
-            .build()
-            .unwrap();
-
-        let response = client
+        let response = self
+            .client()
             .post(&self.rest_url)
             .header("Authorization", format!("Bearer {}", self.api_key))
             .header("Accept", "application/json")
@@ -91,7 +102,7 @@ impl LlmLike for Nvidia {
             Ok(chat_response)
         } else {
             let error_text = response.text()?;
-            println!("Nvidia: Error: {}", error_text);
+            eprintln!("Nvidia: Error: {}", error_text);
             Err(LlmError::Other)
         }
     }
@@ -208,4 +219,3 @@ mod tests {
         assert_eq!(req.messages.len(), 1);
     }
 }
-
