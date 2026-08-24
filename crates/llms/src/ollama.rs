@@ -29,6 +29,8 @@ pub struct Ollama {
     pub tools: ToolMap,
     /// Tool definitions sent to the model.
     pub registered_tools: Vec<ToolDef>,
+    /// Cached chat request body, reused across prompts to avoid re-allocation.
+    chat_request: general::ChatRequest,
 }
 
 /// Default config: local Ollama at `http://localhost:11434`, model `qwen3:8B`, 300s timeout.
@@ -43,6 +45,11 @@ impl Default for Ollama {
             timeout: 300,
             tools: HashMap::new(),
             registered_tools: Vec::new(),
+            chat_request: general::ChatRequest {
+                model: String::from("qwen3:8B"),
+                stream: Some(false),
+                ..Default::default()
+            },
         }
     }
 }
@@ -132,6 +139,45 @@ impl LlmLike for Ollama {
     }
     fn private_set_sys_pr(&mut self, a: String, _: crate::private::Filter) {
         self.sys_pr = Some(a);
+    }
+
+    /// Refresh the cached chat request with the current history and tools.
+    /// Only updates dynamic fields; avoids re-allocating the entire request body.
+    fn refresh_request(&mut self) {
+        self.chat_request.model = self.model().clone();
+        self.chat_request.messages = self.history().clone();
+        self.chat_request.tools = Some(self.registered_tools().clone());
+    }
+
+    fn prompt(&mut self, prompt: String) -> LlmResult<String> {
+        #[cfg(any(feature = "bench", feature = "bench-threadsafe"))]
+        let query_start = std::time::Instant::now();
+
+        #[cfg(any(feature = "bench", feature = "bench-threadsafe"))]
+        crate::bench::begin_prompt();
+
+        let user_cue = self.user_cue();
+        let response_cue = self.response_cue();
+
+        self.history_mut()
+            .push(msg(&user_cue, Some(prompt), None, None));
+
+        // Refresh the cached request with updated history and tools
+        self.refresh_request();
+
+        let resp = self.query(self.chat_request.clone())?;
+        let content = resp.message.content.unwrap_or_default();
+        self.history_mut().push(msg(
+            &response_cue,
+            Some(content.clone()),
+            resp.message.tool_calls,
+            None,
+        ));
+
+        #[cfg(any(feature = "bench", feature = "bench-threadsafe"))]
+        crate::bench::emit_query(query_start.elapsed(), self.model());
+
+        Ok(content)
     }
 }
 
