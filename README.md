@@ -1,52 +1,14 @@
-[Out of Date!!]
-# Ollama Rust Client
+# Agentic AI in Rust
 
-A simple Rust CLI application to interact with the Ollama REST API.
+## Agent Orchestration
 
-## Features
+Agentic AI has two broad components: an *LLM* which acts like the 'brain', and a *Harness*, which makes a  requires a **Harness** in order to perform computation that cannot be done by the LLM
 
-- Supports custom **System Prompts**.
-- Supports custom **User Queries**.
-- Configurable **Model** and **API URL**.
-- Built with `tokio`, `reqwest`, `serde`, and `clap`.
+### Harness Features
 
-## Prerequisites
-
-- [Rust](https://www.rust-lang.org/tools/install) installed.
-- [Ollama](https://ollama.com/) running locally or accessible via network.
-
-## Installation
-
-1. Clone or copy the source code.
-2. Build the project:
-   ```bash
-   cargo build --release
-   ```
-
-## Usage
-
-Run the application using `cargo run`:
-
-```bash
-cargo run -- --query "Explain quantum entanglement" --system "You are a theoretical physicist."
-```
-
-### Options
-
-- `-q, --query <QUERY>`: The user query to send.
-- `-s, --system <SYSTEM>`: The system prompt (default: "You are a helpful assistant.").
-- `-m, --model <MODEL>`: The model to use (default: "llama3").
-- `-u, --url <URL>`: The base URL of Ollama (default: "http://localhost:11434").
-
-## Project Structure
-
-- `src/main.rs`: Contains the CLI logic and API interaction.
-- `Cargo.toml`: Project dependencies.
-
-## Actions
-
-### Register Tool
- - Make it available to the crate and library functions
- - push the message to the history
- - Input and output are string
-
+A harness in an agentic AI system, or an **Agent Harness** as they are sometimes called, will typically need to perform a number of tasks. This includes:
+ - **Context**: LLMs are *'stateless systems'*, which means that they have no native memory. Regardless of any convenience systems that providers may have built, harnesses maintain the history of a conversation and manage the roles of messages. All of this is done so that the LLM has access to all of the previous information in the conversation history. The part of the history which is passed into the system is known as the **Context Window**.
+ - **Memory**: LLMs cannot maintain everything in context, so we store certain information on the runner device on the Agents. This is usually done through RAG systems. Harnesses typically provide access to these systems. 
+ - **Tools**: The vast majority of tasks cannot be done well by LLMs. The majority of these tasks can also done much more efficiently and correctly using other computer systems. **Harnesses provide access and a runtime for these tools**.
+ 
+This framework allows for all of these features to be added into an **agent harness** that is built natively in `rust`. - with the notable exception of the RAG-like systems, which must be provided by the user. The means that this framework provides everything you need in order to manage the prompts of the AI system. Anything that influences the content of those prompts must be provided. 
