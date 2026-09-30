@@ -23,3 +23,5 @@ This framework allows for all of these features to be added into an **agent harn
 
 It is designed to be very modular. This has a few implications:
 - Adding a new LLM to the Framework is very simple: it simply involves adding a struct that can represent the input, and then adding logic to convert between the IR and the new struct.
+- The modular structure means that the entire framework is 'monomorphic' and therefore largely static. This makes the whole thing very very fast.
+- Property-based testing is relatively simple as well, which means that the framework is rigorously tested.
