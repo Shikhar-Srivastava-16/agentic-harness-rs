@@ -1,13 +1,21 @@
 # Agentic AI in Rust
 
+## Crate Features
+
+The crate works using rust's monomorphic type system to format queries. Agentic Systems involve the repeated transfer of a very large amount of data. All of this data is heavily structured - it involves a JSON (which is semi-structured), with a rigid specification for what the JSON fields are expected to contain. All agentic systems can be said to have two broad categories of code, delieneated by what part of the data transfer it controls:
+- **Structure**: Code that deals with formatting, structuring, and handling of the queries. This is highly structured code, and the input/output is highly predictable
+- **Content**: Code that deals with the content of queries. This is highly dependent on the **purpose and design** of the individual agent.
+
+Queries are the only means by which the LLM communicates with the harness. Due to the determinability of the *Structure* code, it can be heavily standardised. This crate will provide code that has boilerplate-free ways of the 
+
 ## Agent Orchestration
 
-Agentic AI has two broad components: an *LLM* which acts like the 'brain', and a *Harness*, which makes a  requires a **Harness** in order to perform computation that cannot be done by the LLM
+An AI Agent has two broad components: an *LLM* which acts like the 'brain', and a *Harness*, which does everything else. Given that LLMs are hyper-specialised to prediction and generation, they need other software to do different tasks. That means that they need a **Harness** to provide access to this extra software, in order to perform computation that cannot (or should not) be done by the LLM.
 
 ### Harness Features
 
 A harness in an agentic AI system, or an **Agent Harness** as they are sometimes called, will typically need to perform a number of tasks. This includes:
- - **Context**: LLMs are *'stateless systems'*, which means that they have no native memory. Regardless of any convenience systems that providers may have built, harnesses maintain the history of a conversation and manage the roles of messages. All of this is done so that the LLM has access to all of the previous information in the conversation history. The part of the history which is passed into the system is known as the **Context Window**.
+ - **Context**: LLMs are *'stateless systems'*, which means that they have no inbuilt memory. Regardless of any convenience systems that providers may have built, harnesses maintain the history of a conversation and manage the roles of messages. All of this is done so that the LLM has access to all of the previous information in the conversation history. The part of the history which is passed into the system is known as the **Context Window**.
  - **Memory**: LLMs cannot maintain everything in context, so we store certain information on the runner device on the Agents. This is usually done through RAG systems. Harnesses typically provide access to these systems. 
  - **Tools**: The vast majority of tasks cannot be done well by LLMs. The majority of these tasks can also done much more efficiently and correctly using other computer systems. **Harnesses provide access and a runtime for these tools**.
  
